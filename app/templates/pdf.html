@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block title %}PDF Summarizer - SummarEase{% endblock %}
+{% block content %}
+<h2>Summarize a PDF</h2>
+<form method="post" action="{{ url_for('routes.pdf') }}" enctype="multipart/form-data">
+  <div class="mb-3">
+    <label class="form-label" for="pdf">Choose a PDF file</label>
+    <input class="form-control" type="file" id="pdf" name="pdf" accept="application/pdf" required>
+  </div>
+  <button type="submit" class="btn btn-primary">Summarize</button>
+</form>
+
+{% include "_result.html" %}
+{% endblock %}

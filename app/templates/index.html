@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}SummarEase{% endblock %}
+{% block content %}
+<div class="text-center mb-5">
+  <h1 class="display-5 fw-bold">SummarEase</h1>
+  <p class="lead text-muted">Summarize text, PDFs, YouTube videos, and news articles in one place.</p>
+</div>
+
+<div class="row g-4">
+  <div class="col-md-3">
+    <a href="{{ url_for('routes.text') }}" class="card text-decoration-none h-100 shadow-sm">
+      <div class="card-body text-center">
+        <h5 class="card-title">Text</h5>
+        <p class="card-text text-muted small">Paste any text and get a concise summary.</p>
+      </div>
+    </a>
+  </div>
+  <div class="col-md-3">
+    <a href="{{ url_for('routes.pdf') }}" class="card text-decoration-none h-100 shadow-sm">
+      <div class="card-body text-center">
+        <h5 class="card-title">PDF</h5>
+        <p class="card-text text-muted small">Upload a PDF and summarize its contents.</p>
+      </div>
+    </a>
+  </div>
+  <div class="col-md-3">
+    <a href="{{ url_for('routes.youtube') }}" class="card text-decoration-none h-100 shadow-sm">
+      <div class="card-body text-center">
+        <h5 class="card-title">YouTube</h5>
+        <p class="card-text text-muted small">Summarize a video from its transcript.</p>
+      </div>
+    </a>
+  </div>
+  <div class="col-md-3">
+    <a href="{{ url_for('routes.article') }}" class="card text-decoration-none h-100 shadow-sm">
+      <div class="card-body text-center">
+        <h5 class="card-title">Article</h5>
+        <p class="card-text text-muted small">Summarize a news or blog article by URL.</p>
+      </div>
+    </a>
+  </div>
+</div>
+{% endblock %}

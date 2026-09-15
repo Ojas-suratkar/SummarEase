@@ -1,0 +1,10 @@
+.env
+__pycache__/
+*.pyc
+.venv/
+venv/
+instance/
+.flask_session/
+app/static/audio/*.mp3
+!app/static/audio/.gitkeep
+.DS_Store
