@@ -9,6 +9,9 @@ text-to-speech playback for every result.
 - **Text** - paste any text, get a short summary.
 - **PDF** - upload a PDF, get a summary of its extracted text.
 - **YouTube** - paste a video URL, get a summary built from its transcript.
+- **YouTube comment sentiment** - on the YouTube results page, analyze the
+  video's top comments (via the official YouTube Data API) and get an
+  average sentiment score/label.
 - **Article** - paste a news/blog URL, get a summary of the article body
   (extraction works across most sites, not just a fixed list of domains).
 - Every summary comes with TF-IDF-ranked keywords you can click to get a
@@ -47,6 +50,7 @@ app/
     youtube_service.py   # transcript fetch + chunked summarization
     article_extractor.py # generic article text extraction (trafilatura)
     tts_service.py       # text -> mp3 (gTTS)
+    youtube_comments.py  # comment fetch (YouTube Data API) + VADER sentiment scoring
   templates/            # Jinja templates (Bootstrap 5 via CDN)
   static/                # css, js, generated audio files
 run.py
@@ -67,10 +71,13 @@ everything" approach:
 - **YouTube summarization** reuses the Gemini client (chunking the
   transcript) instead of also running a separate local BART model — one
   fewer multi-gigabyte ML dependency, same summarization quality.
-- **YouTube comment sentiment analysis** is left out. Doing it well needs
-  either a browser-automation scraper (fragile, and its own maintenance
-  burden) or the official YouTube Data API (needs its own API key/quota).
-  It's a reasonable follow-up feature if you want to add it back later.
+- **YouTube comment sentiment analysis** fetches top-level comments through
+  the official YouTube Data API (instead of a browser-automation scraper,
+  which is fragile and against YouTube's terms of service) and scores them
+  with VADER, a small lexicon-based analyzer tuned for short, informal text
+  — instead of loading a multi-gigabyte BERT/transformer model for the same
+  job. Needs its own `YOUTUBE_API_KEY` (see below); the button on the
+  YouTube results page is hidden if a summary hasn't been generated yet.
 
 ## Environment variables
 
@@ -78,6 +85,7 @@ everything" approach:
 |--------------------|----------|--------------------------------------------|
 | `GEMINI_API_KEY`   | yes      | Google Generative AI API key               |
 | `FLASK_SECRET_KEY` | yes      | Signs Flask's session cookie               |
+| `YOUTUBE_API_KEY`  | no       | YouTube Data API v3 key, for comment sentiment |
 | `FLASK_DEBUG`      | no       | Set to `1` to enable Flask debug mode      |
 
 Never commit your `.env` file — it's already in `.gitignore`.

@@ -5,6 +5,7 @@ from .services.keywords import extract_keywords
 from .services.pdf_extractor import PdfExtractionError, extract_text as extract_pdf_text
 from .services.summarizer import SummarizerError, explain_term, summarize_text
 from .services.tts_service import synthesize
+from .services.youtube_comments import YoutubeCommentsError, analyze_video_comments
 from .services.youtube_service import YoutubeServiceError, summarize_video
 
 bp = Blueprint("routes", __name__)
@@ -86,10 +87,12 @@ def youtube():
             error = str(exc)
 
     summary = result["summary"] if result else None
+    video_id = result["video_id"] if result else None
     keywords = extract_keywords(summary) if summary else []
     return render_template(
         "youtube.html",
         summary=summary,
+        video_id=video_id,
         keywords=keywords,
         error=error,
         submitted=True,
@@ -125,6 +128,20 @@ def api_explain():
         return jsonify({"term": term, "explanation": explain_term(term, context)})
     except SummarizerError as exc:
         return jsonify({"term": term, "error": str(exc)}), 502
+
+
+@bp.post("/api/youtube/sentiment")
+def api_youtube_sentiment():
+    """AJAX endpoint: sentiment of a video's top comments, via the YouTube
+    Data API + a lightweight lexicon scorer (see youtube_comments.py)."""
+    data = request.get_json(silent=True) or {}
+    video_id = data.get("video_id", "")
+    if not video_id:
+        return jsonify({"error": "Missing video_id."}), 400
+    try:
+        return jsonify(analyze_video_comments(video_id))
+    except YoutubeCommentsError as exc:
+        return jsonify({"error": str(exc)}), 502
 
 
 @bp.post("/api/speak")

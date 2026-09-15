@@ -45,5 +45,32 @@ document.addEventListener("click", async (event) => {
       speakBtn.disabled = false;
       speakBtn.textContent = "🔊 Listen";
     }
+    return;
+  }
+
+  const sentimentBtn = event.target.closest(".sentiment-btn");
+  if (sentimentBtn) {
+    const videoId = sentimentBtn.dataset.videoId;
+    const output = sentimentBtn.closest(".card-body").querySelector(".sentiment-output");
+    sentimentBtn.disabled = true;
+    output.textContent = "Fetching and scoring comments...";
+    try {
+      const res = await fetch("/api/youtube/sentiment", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ video_id: videoId }),
+      });
+      const data = await res.json();
+      if (data.error) {
+        output.textContent = data.error;
+      } else {
+        output.textContent =
+          `${data.label} (average score ${data.average_score} across ${data.sample_size} comments)`;
+      }
+    } catch (err) {
+      output.textContent = "Something went wrong analyzing comments.";
+    } finally {
+      sentimentBtn.disabled = false;
+    }
   }
 });
