@@ -2,16 +2,17 @@
 {% block title %}Article Summarizer - SummarEase{% endblock %}
 {% block content %}
 <h2>Summarize a news or blog article</h2>
-<form method="post" action="{{ url_for('routes.article') }}">
+<form method="post" action="{{ url_for('routes.article') }}" data-job-kind="article">
   <div class="mb-3">
     <label class="form-label" for="url">Article URL</label>
     <input class="form-control" type="url" id="url" name="url"
            placeholder="https://example.com/some-article" required
            value="{{ request.form.get('url', '') }}">
   </div>
+  {% include "_detail_selector.html" %}
   <button type="submit" class="btn btn-primary">Summarize</button>
 </form>
 <p class="text-muted small mt-2">Works on most news and blog sites, not just a fixed list of domains.</p>
 
-{% include "_result.html" %}
+<div id="result-container">{% include "_result.html" %}</div>
 {% endblock %}

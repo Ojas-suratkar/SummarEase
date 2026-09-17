@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block title %}Briefing Mode - SummarEase{% endblock %}
+{% block content %}
+<h2>Briefing mode</h2>
+<p class="text-muted">Combine several sources into one briefing. Each point is attributed to its source, and disagreements are called out.</p>
+
+<form method="post" action="{{ url_for('routes.briefing') }}" enctype="multipart/form-data">
+  {% for i in range(1, max_sources + 1) %}
+    <div class="border rounded p-3 mb-3">
+      <div class="row g-2 align-items-center mb-2">
+        <div class="col-auto fw-semibold">Source {{ i }}</div>
+        <div class="col-sm-4">
+          <select class="form-select form-select-sm kind-select" name="kind_{{ i }}" data-row="{{ i }}">
+            <option value="skip">Skip</option>
+            <option value="text">Paste text</option>
+            <option value="url">Article URL</option>
+            <option value="pdf">PDF upload</option>
+          </select>
+        </div>
+        <div class="col">
+          <input type="text" class="form-control form-control-sm" name="label_{{ i }}" placeholder="Label (e.g. NYT article, my notes)">
+        </div>
+      </div>
+      <textarea class="form-control form-control-sm d-none source-input" data-row="{{ i }}" data-kind="text"
+                name="text_value_{{ i }}" rows="3" placeholder="Paste text..."></textarea>
+      <input type="url" class="form-control form-control-sm d-none source-input" data-row="{{ i }}" data-kind="url"
+             name="url_value_{{ i }}" placeholder="https://example.com/article">
+      <input type="file" class="form-control form-control-sm d-none source-input" data-row="{{ i }}" data-kind="pdf"
+             name="file_{{ i }}" accept="application/pdf">
+    </div>
+  {% endfor %}
+
+  <button type="submit" class="btn btn-primary">Synthesize briefing</button>
+</form>
+
+{% if warnings %}
+  <div class="alert alert-warning mt-4">
+    <div class="fw-semibold mb-1">Heads up:</div>
+    <ul class="mb-0">
+      {% for w in warnings %}<li>{{ w }}</li>{% endfor %}
+    </ul>
+  </div>
+{% endif %}
+
+{% if error %}
+  <div class="alert alert-danger mt-4">{{ error }}</div>
+{% endif %}
+
+{% if result %}
+  <div class="card mt-4 shadow-sm">
+    <div class="card-body">
+      <h5 class="card-title">Synthesized briefing</h5>
+      <p class="text-muted small">From {{ result.source_count }} sources: {{ result.labels|join(", ") }}</p>
+      <p class="card-text" style="white-space: pre-line;">{{ result.briefing }}</p>
+    </div>
+  </div>
+
+  {% if doc_id %}
+    <div class="card mt-3 shadow-sm">
+      <div class="card-body">
+        <h6 class="card-title">Ask about these sources</h6>
+        <form class="ask-form d-flex gap-2" data-doc-id="{{ doc_id }}">
+          <input type="text" class="form-control form-control-sm ask-input" placeholder="Ask a question across these sources..." required>
+          <button type="submit" class="btn btn-sm btn-primary text-nowrap">Ask</button>
+        </form>
+        <div class="ask-output mt-2 small"></div>
+      </div>
+    </div>
+  {% endif %}
+{% endif %}
+{% endblock %}

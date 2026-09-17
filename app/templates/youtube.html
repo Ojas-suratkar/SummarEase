@@ -2,30 +2,39 @@
 {% block title %}YouTube Summarizer - SummarEase{% endblock %}
 {% block content %}
 <h2>Summarize a YouTube video</h2>
-<form method="post" action="{{ url_for('routes.youtube') }}">
+<form method="post" action="{{ url_for('routes.youtube') }}" data-job-kind="youtube">
   <div class="mb-3">
     <label class="form-label" for="url_youtube">Video URL</label>
     <input class="form-control" type="url" id="url_youtube" name="url_youtube"
            placeholder="https://www.youtube.com/watch?v=..." required
            value="{{ request.form.get('url_youtube', '') }}">
   </div>
+  {% include "_detail_selector.html" %}
   <button type="submit" class="btn btn-primary">Summarize</button>
 </form>
-<p class="text-muted small mt-2">Works on videos that have captions/subtitles available.</p>
+<p class="text-muted small mt-2">Works on any public video -- uses captions when available, otherwise Gemini watches the video directly.</p>
 
-{% include "_result.html" %}
+<div id="result-container">
+  {% include "_result.html" %}
 
-{% if summary and video_id %}
-  <div class="card mt-3 shadow-sm">
-    <div class="card-body">
-      <h6 class="card-title d-flex justify-content-between align-items-center">
-        Comment sentiment
-        <button type="button" class="btn btn-sm btn-outline-secondary sentiment-btn" data-video-id="{{ video_id }}">
-          Analyze comments
-        </button>
-      </h6>
-      <div class="sentiment-output small text-muted"></div>
+  {% if method %}
+    <p class="text-muted small">
+      {% if method == "transcript" %}Summarized from the video's captions.{% else %}No captions were available -- summarized by having Gemini watch the video directly.{% endif %}
+    </p>
+  {% endif %}
+
+  {% if summary and video_id %}
+    <div class="card mt-3 shadow-sm">
+      <div class="card-body">
+        <h6 class="card-title d-flex justify-content-between align-items-center">
+          Comment sentiment
+          <button type="button" class="btn btn-sm btn-outline-secondary sentiment-btn" data-video-id="{{ video_id }}">
+            Analyze comments
+          </button>
+        </h6>
+        <div class="sentiment-output small text-muted"></div>
+      </div>
     </div>
-  </div>
-{% endif %}
+  {% endif %}
+</div>
 {% endblock %}

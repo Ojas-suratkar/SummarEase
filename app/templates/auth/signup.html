@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}Sign up - SummarEase{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-md-5">
+    <h2 class="mb-3">Create your account</h2>
+    <p class="text-muted small">Free, and yours -- everything you summarize is saved under your own account, not a shared local file, so it's there when you log in from any device.</p>
+    {% if error %}<div class="alert alert-danger">{{ error }}</div>{% endif %}
+    <form method="post" action="{{ url_for('auth.signup') }}">
+      <div class="mb-3">
+        <label class="form-label" for="email">Email</label>
+        <input class="form-control" type="email" id="email" name="email" value="{{ email or '' }}" required autofocus>
+      </div>
+      <div class="mb-3">
+        <label class="form-label" for="display_name">Name (optional)</label>
+        <input class="form-control" type="text" id="display_name" name="display_name" value="{{ display_name or '' }}" placeholder="What should we call you?">
+      </div>
+      <div class="mb-3">
+        <label class="form-label" for="password">Password</label>
+        <input class="form-control" type="password" id="password" name="password" minlength="8" required>
+        <div class="form-text">At least 8 characters.</div>
+      </div>
+      <div class="mb-3">
+        <label class="form-label" for="confirm_password">Confirm password</label>
+        <input class="form-control" type="password" id="confirm_password" name="confirm_password" minlength="8" required>
+      </div>
+      <button type="submit" class="btn btn-primary w-100">Create account</button>
+    </form>
+    <p class="text-muted small mt-3 mb-0">Already have an account? <a href="{{ url_for('auth.login') }}">Log in</a>.</p>
+  </div>
+</div>
+{% endblock %}

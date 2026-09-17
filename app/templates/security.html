@@ -1,0 +1,123 @@
+{% extends "base.html" %}
+{% block title %}Security &amp; devices - SummarEase{% endblock %}
+{% block content %}
+<div class="se-security">
+
+  <div class="se-page-head">
+    <div>
+      <h2>Security &amp; devices</h2>
+      <p>Where you're signed in, how long sessions last, and how to remove your data.</p>
+    </div>
+  </div>
+
+  {% if request.args.get('deleted') %}
+    <div class="alert alert-success">Everything was deleted. Your account is still here, but it's empty.</div>
+  {% endif %}
+  {% if request.args.get('error') == 'confirm' %}
+    <div class="alert alert-danger">Nothing was deleted — the confirmation text didn't match.</div>
+  {% endif %}
+
+  <div class="card mb-4">
+    <div class="card-body">
+      <h5 class="card-title">Signed in on these devices</h5>
+      <p class="text-muted small">
+        Each of these can read your account. If you don't recognise one, sign it out.
+      </p>
+
+      <div class="list-group list-group-flush mb-3">
+        {% for s in sessions %}
+          <div class="list-group-item px-0 d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <div>
+              <strong>{{ s.device }}</strong>
+              {% if s.current %}<span class="badge text-bg-success ms-1">this one</span>{% endif %}
+              <div class="small text-muted">
+                {{ s.ip_address or "unknown address" }} · last used {{ s.last_seen_at[:16] | replace("T", " ") }}
+              </div>
+            </div>
+            {% if not s.current %}
+              <form method="post" action="{{ url_for('v2.revoke_session', session_id=s.id) }}">
+                <button type="submit" class="btn btn-sm btn-outline-danger">Sign out</button>
+              </form>
+            {% endif %}
+          </div>
+        {% else %}
+          <p class="text-muted small mb-0">No other active sessions.</p>
+        {% endfor %}
+      </div>
+
+      {% if sessions | length > 1 %}
+        <form method="post" action="{{ url_for('v2.revoke_other_sessions') }}">
+          <button type="submit" class="btn btn-sm btn-outline-danger">Sign out everywhere else</button>
+        </form>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="card mb-4">
+    <div class="card-body">
+      <h5 class="card-title">How long sessions last</h5>
+      <p class="text-muted small">
+        Previously the app kept you signed in indefinitely on every machine you ever used. It doesn't
+        anymore.
+      </p>
+      <ul class="small mb-0">
+        <li>Idle for <strong>{{ idle_minutes }} minutes</strong> and you're signed out. You get a warning
+          first, with a button to stay.</li>
+        <li>Ticking "keep me signed in" extends that to <strong>{{ remembered_days }} days</strong> of
+          inactivity — useful on your own laptop, not on a shared one.</li>
+        <li>Either way, no session survives past <strong>{{ absolute_days }} days</strong>.</li>
+        <li>Signing out a device here takes effect immediately, on that device's next request.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="row g-4 mb-4">
+    <div class="col-md-6">
+      <div class="card h-100">
+        <div class="card-body">
+          <h5 class="card-title">Private vault</h5>
+          <p class="text-muted small">
+            {{ vault.count }} encrypted item{{ "s" if vault.count != 1 else "" }} ({{ vault.bytes }} bytes of
+            ciphertext). These are encrypted in your browser with a passphrase the server never receives, so
+            we can't read them and neither can anyone who gets hold of the database.
+          </p>
+          <a class="btn btn-sm btn-outline-primary" href="{{ url_for('v2.vault_page') }}">Open the vault</a>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-6">
+      <div class="card h-100">
+        <div class="card-body">
+          <h5 class="card-title">Stored files</h5>
+          <p class="text-muted small">
+            {{ storage.total_files }} original file{{ "s" if storage.total_files != 1 else "" }} kept so you
+            can replay recordings and re-read documents — {{ (storage.total_bytes / 1048576) | round(1) }} MB.
+          </p>
+          <a class="btn btn-sm btn-outline-primary" href="{{ url_for('v2.library') }}">Manage them</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card border-danger">
+    <div class="card-body">
+      <h5 class="card-title text-danger">Delete everything</h5>
+      <p class="text-muted small">
+        Removes every summary, note, tag, flashcard, link and stored file on this account, and deletes the
+        files from disk rather than just forgetting they exist. Your login stays, so you can start fresh.
+        There is no undo and no backup — export first if you want a copy.
+      </p>
+      <a class="btn btn-sm btn-outline-secondary mb-3" href="{{ url_for('routes.export_page') }}">Export first</a>
+      <form method="post" action="{{ url_for('v2.delete_everything') }}" class="row g-2 align-items-center"
+            onsubmit="return confirm('Last check: this permanently deletes all your saved work.');">
+        <div class="col-auto">
+          <input type="text" class="form-control form-control-sm" name="confirm" placeholder="type: delete everything" style="width: 230px;" required>
+        </div>
+        <div class="col-auto">
+          <button type="submit" class="btn btn-sm btn-danger">Delete it all</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

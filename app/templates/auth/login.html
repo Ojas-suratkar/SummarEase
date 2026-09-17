@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}Log in - SummarEase{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-md-5">
+    <h2 class="mb-3">Log in</h2>
+    {% if error %}<div class="alert alert-danger">{{ error }}</div>{% endif %}
+    {% if request.args.get('timeout') %}
+      <div class="alert alert-warning">
+        You were signed out because the session sat idle. Log back in to carry on.
+      </div>
+    {% endif %}
+    <form method="post" action="{{ url_for('auth.login') }}">
+      <input type="hidden" name="next" value="{{ next }}">
+      <div class="mb-3">
+        <label class="form-label" for="email">Email</label>
+        <input class="form-control" type="email" id="email" name="email" value="{{ email or '' }}" required autofocus>
+      </div>
+      <div class="mb-3">
+        <label class="form-label" for="password">Password</label>
+        <input class="form-control" type="password" id="password" name="password" required>
+      </div>
+      <div class="form-check mb-3">
+        <input class="form-check-input" type="checkbox" id="remember" name="remember" value="1">
+        <label class="form-check-label small" for="remember">
+          Keep me signed in on this device
+          <span class="d-block text-muted">Leave this unticked on a shared or public computer — sessions
+          then end after an hour of inactivity.</span>
+        </label>
+      </div>
+      <button type="submit" class="btn btn-primary w-100">Log in</button>
+    </form>
+    <p class="text-muted small mt-3 mb-0">No account yet? <a href="{{ url_for('auth.signup') }}">Sign up free</a>.</p>
+  </div>
+</div>
+{% endblock %}

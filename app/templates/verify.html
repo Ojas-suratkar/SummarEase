@@ -1,0 +1,144 @@
+{% extends "base.html" %}
+{% block title %}Integrity check - SummarEase{% endblock %}
+{% block content %}
+<div class="se-verify">
+
+  <div class="se-page-head">
+    <div>
+      <div class="se-ref">{{ matter.reference }}</div>
+      <h2 class="mb-1">Integrity check</h2>
+      <p class="mb-0">
+        Every record recomputed from its contents, and every stored file re-read from disk and compared
+        against what was sealed.
+      </p>
+    </div>
+    <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('matters.matter_detail', matter_id=matter_id) }}">Back to matter</a>
+  </div>
+
+  <div class="card mb-4 {{ 'border-success' if result.valid else 'border-danger' }}">
+    <div class="card-body">
+      <div class="d-flex align-items-center gap-3 mb-2">
+        <span class="se-verdict {{ 'se-verdict-ok' if result.valid else 'se-verdict-bad' }}">
+          {{ "Intact" if result.valid else "Altered" }}
+        </span>
+        <div>
+          <div class="fw-semibold">{{ result.summary }}</div>
+          <div class="text-muted small">
+            {{ result.entries }} record{{ "s" if result.entries != 1 }} checked
+            {% if result.checked_files %}, including every stored file{% endif %}
+            &middot; {{ result.verified_at[:19] | replace("T", " ") }} UTC
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {% if result.problems %}
+    <div class="card mb-4">
+      <div class="card-body">
+        <h5 class="card-title text-danger">What is wrong</h5>
+        <div class="list-group list-group-flush">
+          {% for problem in result.problems %}
+            <div class="list-group-item px-0">
+              <strong>Record {{ problem.sequence }}</strong>
+              <span class="badge text-bg-danger">{{ problem.kind | replace("_", " ") }}</span>
+              <p class="mb-1 mt-1 small">{{ problem.detail }}</p>
+              {% if problem.expected %}
+                <div class="small text-muted se-mono">
+                  sealed as {{ problem.expected[:24] }}…<br>
+                  found     {{ problem.found[:24] }}…
+                </div>
+              {% endif %}
+            </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  {% endif %}
+
+  <div class="row g-4">
+    <div class="col-md-6">
+      <div class="card h-100">
+        <div class="card-body">
+          <h6 class="card-title">Current root fingerprint</h6>
+          <div class="se-rootbox">{{ result.merkle_root }}</div>
+          {% if seal %}
+            <p class="text-muted small mt-2 mb-1">
+              At the last seal ({{ seal.sealed_at[:10] }}) it was:
+            </p>
+            <div class="se-rootbox">{{ seal.merkle_root }}</div>
+            {% if seal.merkle_root == result.merkle_root %}
+              <p class="small text-success mt-2 mb-0">
+                Identical. Nothing has been added or changed since that seal.
+              </p>
+            {% else %}
+              <p class="small text-warning mt-2 mb-0">
+                Different. That is expected if you have entered records since sealing — seal again to
+                cover them. If you have not added anything, this is a warning worth investigating.
+              </p>
+            {% endif %}
+            {% if seal.anchored_note %}
+              <p class="small text-muted mt-2 mb-0">Published: {{ seal.anchored_note }}</p>
+            {% endif %}
+          {% else %}
+            <p class="text-muted small mt-2 mb-0">
+              This matter has not been sealed. Sealing produces a fingerprint you can publish elsewhere,
+              which is what lets you later establish the records existed on that date.
+            </p>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-6">
+      <div class="card h-100">
+        <div class="card-body">
+          <h6 class="card-title">What this check establishes</h6>
+          <p class="small mb-2">
+            That these records have not been altered, reordered, or had entries added or removed since
+            they were sealed. Each record commits to the one before it, so a change anywhere breaks
+            everything after it.
+          </p>
+          <h6 class="card-title mt-3">What it does not</h6>
+          <p class="small mb-2">
+            That the contents are true. A sealed statement is still a statement.
+          </p>
+          <p class="small mb-0">
+            That the records were made when they claim — unless the fingerprint was published somewhere
+            independent at the time. Without that, the dates are this system's own assertion. Publishing
+            the seal is the step that removes the doubt, and it takes a minute.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card mt-4">
+    <div class="card-body">
+      <h6 class="card-title">Checking this without trusting us</h6>
+      <p class="small mb-2">
+        The exported pack contains <code>verify.py</code>, which repeats this check using only the Python
+        standard library. It reads the files in the pack, recomputes every fingerprint, and names any
+        record that does not match. It is short enough to read before running.
+      </p>
+      <p class="small text-muted mb-3">
+        That matters because the other side in a dispute has no reason to trust software you chose. They
+        do not have to.
+      </p>
+      <a class="btn btn-sm btn-primary" href="{{ url_for('matters.matter_pack', matter_id=matter_id) }}">Export the pack</a>
+    </div>
+  </div>
+</div>
+
+<style>
+  .se-verify .se-ref { font-family: "JetBrains Mono", monospace; font-size: 0.8rem; color: var(--se-ink-muted); }
+  .se-verify .se-mono { font-family: "JetBrains Mono", monospace; font-size: 0.75rem; }
+  .se-verify .se-rootbox { font-family: "JetBrains Mono", monospace; font-size: 0.72rem;
+                           background: var(--se-surface-alt); border: 1px solid var(--se-border);
+                           border-radius: var(--se-radius-xs); padding: 0.55rem; word-break: break-all; }
+  .se-verify .se-verdict { font-size: 0.95rem; font-weight: 700; padding: 0.4rem 1rem;
+                           border-radius: 999px; white-space: nowrap; }
+  .se-verify .se-verdict-ok { background: rgba(22, 163, 74, 0.12); color: var(--se-success); }
+  .se-verify .se-verdict-bad { background: rgba(220, 38, 38, 0.12); color: var(--se-danger); }
+</style>
+{% endblock %}

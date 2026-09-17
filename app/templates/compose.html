@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block title %}Compose - SummarEase{% endblock %}
+{% block content %}
+<h2>Compose</h2>
+<p class="text-muted">Turn a summary into something new -- an email, a post, a follow-up. Every regeneration is saved as its own version, diffed against the last one.</p>
+
+{% if error %}<div class="alert alert-danger">{{ error }}</div>{% endif %}
+
+<form method="post" action="{{ url_for('routes.compose_page') }}" class="card shadow-sm mb-4">
+  <div class="card-body">
+    <div class="mb-3">
+      <label class="form-label small">Source</label>
+      <select class="form-select form-select-sm mb-2" name="entry_id" onchange="this.form.source_text.value=''">
+        <option value="">-- paste text below instead --</option>
+        {% for e in recent_entries %}
+          <option value="{{ e.id }}" {% if entry_id == e.id %}selected{% endif %}>{{ e.source_ref or e.source_type }}</option>
+        {% endfor %}
+      </select>
+      <textarea class="form-control form-control-sm" name="source_text" rows="3" placeholder="...or paste text to draft from"></textarea>
+    </div>
+    <div class="row g-2 mb-2">
+      <div class="col-sm-6">
+        <label class="form-label small">Draft type</label>
+        <select class="form-select form-select-sm" name="draft_type">
+          {% for key, label in draft_types.items() %}
+            <option value="{{ key }}" {% if draft_type == key %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-sm-6">
+        <label class="form-label small">Extra instructions (optional)</label>
+        <input type="text" class="form-control form-control-sm" name="instructions" placeholder="e.g. keep it under 100 words">
+      </div>
+    </div>
+    <button type="submit" class="btn btn-primary btn-sm">Generate draft</button>
+  </div>
+</form>
+
+{% if draft %}
+  <div class="card shadow-sm mb-3">
+    <div class="card-body">
+      <h6 class="card-title d-flex justify-content-between align-items-center">
+        Draft <span class="badge text-bg-light text-muted">version {{ draft.version }}</span>
+      </h6>
+      <p class="card-text" style="white-space: pre-line;">{{ draft.content }}</p>
+    </div>
+  </div>
+{% endif %}
+
+{% if diff_html %}
+  <div class="card shadow-sm mb-3">
+    <div class="card-body">
+      <h6 class="card-title">What changed since the last version</h6>
+      <p class="mb-0">{{ diff_html | safe }}</p>
+    </div>
+  </div>
+{% endif %}
+
+{% if versions %}
+  <h6 class="se-section-label text-uppercase">Version history</h6>
+  <div class="list-group">
+    {% for v in versions %}
+      <div class="list-group-item">
+        <div class="d-flex justify-content-between">
+          <span class="fw-semibold small">Version {{ v.version }}</span>
+          <span class="text-muted small">{{ v.created_at[:19] }}</span>
+        </div>
+        <div class="small text-muted text-truncate">{{ v.content }}</div>
+      </div>
+    {% endfor %}
+  </div>
+{% endif %}
+{% endblock %}

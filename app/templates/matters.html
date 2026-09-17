@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+{% block title %}Matters - SummarEase{% endblock %}
+{% block content %}
+<div class="se-matters">
+
+  <div class="se-page-head">
+    <div>
+      <h2>Matters</h2>
+      <p>
+        A matter is one situation you are keeping records for: a tenancy, a contract, a workplace
+        grievance, a claim. Records entered against it are sealed on entry, so later alteration is
+        detectable and the account can be handed to someone else to check.
+      </p>
+    </div>
+  </div>
+
+  {% if matters %}
+    <div class="table-responsive mb-4">
+      <table class="table se-matter-table align-middle">
+        <thead>
+          <tr>
+            <th>Reference</th><th>Matter</th><th>Other party</th>
+            <th class="text-end">Records</th><th>Last sealed</th><th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for matter in matters %}
+            <tr>
+              <td class="se-ref">{{ matter.reference }}</td>
+              <td>
+                <a class="se-matter-title" href="{{ url_for('matters.matter_detail', matter_id=matter.id) }}">{{ matter.title }}</a>
+                <div class="small text-muted">{{ matter.kind_label }}{% if matter.status == 'closed' %} &middot; closed{% endif %}</div>
+              </td>
+              <td class="text-muted">{{ matter.counterparty or "—" }}</td>
+              <td class="text-end">
+                {{ matter.record_count }}
+                {% if matter.unsealed_count > 0 and matter.record_count > 0 %}
+                  <div class="small text-warning">{{ matter.unsealed_count }} unsealed</div>
+                {% endif %}
+              </td>
+              <td class="small text-muted">
+                {% if matter.last_sealed_at %}{{ matter.last_sealed_at[:10] }}{% else %}never{% endif %}
+              </td>
+              <td class="text-end">
+                <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('matters.matter_detail', matter_id=matter.id) }}">Open</a>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <div class="se-empty mb-4">
+      <h5>No matters yet</h5>
+      <p>
+        Open one for the situation you need records of. You can add photographs, recordings,
+        documents and written statements to it as things happen.
+      </p>
+    </div>
+  {% endif %}
+
+  <div class="card">
+    <div class="card-body">
+      <h5 class="card-title">Open a matter</h5>
+      <form method="post" action="{{ url_for('matters.matter_create') }}" class="row g-3">
+        <div class="col-md-6">
+          <label class="form-label" for="title">What is it about</label>
+          <input class="form-control" type="text" id="title" name="title" required
+                 placeholder="Deposit dispute, 4B Marlow Road">
+        </div>
+        <div class="col-md-3">
+          <label class="form-label" for="kind">Type</label>
+          <select class="form-select" id="kind" name="kind">
+            {% for value, label in kinds %}<option value="{{ value }}">{{ label }}</option>{% endfor %}
+          </select>
+        </div>
+        <div class="col-md-3">
+          <label class="form-label" for="counterparty">Other party</label>
+          <input class="form-control" type="text" id="counterparty" name="counterparty"
+                 placeholder="Optional">
+        </div>
+        <div class="col-12">
+          <label class="form-label" for="description">Background</label>
+          <textarea class="form-control" id="description" name="description" rows="2"
+                    placeholder="Optional. What happened, in your own words."></textarea>
+        </div>
+        <div class="col-12">
+          <button type="submit" class="btn btn-primary">Open matter</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<style>
+  .se-matters .se-ref { font-family: "JetBrains Mono", monospace; font-size: 0.85rem; color: var(--se-ink-muted); }
+  .se-matters .se-matter-title { font-weight: 600; color: var(--se-ink); text-decoration: none; }
+  .se-matters .se-matter-title:hover { color: var(--se-primary); }
+</style>
+{% endblock %}

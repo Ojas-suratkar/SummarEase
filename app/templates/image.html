@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}Image Analysis - SummarEase{% endblock %}
+{% block content %}
+<h2>Analyze an image</h2>
+<p class="text-muted small">Infographics, receipts, whiteboards, charts, scanned pages -- up to 8MB. Capture with your webcam or upload one, then pick the mode that matches it.</p>
+
+<div class="se-recorder card mb-3" data-kind="image" data-target-input="image">
+  <div class="card-body">
+    <h6 class="card-title mb-2">Capture from your webcam</h6>
+    <button type="button" class="btn btn-sm btn-primary se-rec-start">Turn on camera</button>
+    <button type="button" class="btn btn-sm btn-success se-rec-capture d-none">Capture photo</button>
+    <div class="se-rec-status text-muted small mt-2"></div>
+    <video class="se-rec-live w-100 mt-2 d-none" style="max-width: 420px;" autoplay muted playsinline></video>
+    <canvas class="d-none"></canvas>
+    <img class="se-rec-preview w-100 mt-2 d-none" style="max-width: 420px;" alt="Captured photo">
+  </div>
+</div>
+
+<form method="post" action="{{ url_for('routes.image') }}" enctype="multipart/form-data" data-job-kind="image">
+  <div class="mb-3">
+    <label class="form-label" for="image">...or choose an image file</label>
+    <input class="form-control" type="file" id="image" name="image" accept="image/*" required>
+  </div>
+  <div class="mb-3">
+    <label class="form-label" for="mode">What is it?</label>
+    <select class="form-select" id="mode" name="mode">
+      <option value="describe" {% if mode == "describe" %}selected{% endif %}>General image -- describe it</option>
+      <option value="extract_text" {% if mode == "extract_text" %}selected{% endif %}>Text-heavy -- extract the text</option>
+      <option value="receipt" {% if mode == "receipt" %}selected{% endif %}>Receipt / invoice -- itemize it</option>
+      <option value="chart" {% if mode == "chart" %}selected{% endif %}>Chart / infographic -- explain it</option>
+      <option value="whiteboard" {% if mode == "whiteboard" %}selected{% endif %}>Whiteboard / handwritten notes -- transcribe it</option>
+    </select>
+  </div>
+  <button type="submit" class="btn btn-primary">Analyze</button>
+</form>
+
+<div id="result-container">{% include "_result.html" %}</div>
+{% endblock %}

@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% block title %}Timeline - SummarEase{% endblock %}
+{% block content %}
+<div class="se-timeline-page">
+
+  <div class="se-page-head">
+    <div>
+      <h2>Timeline</h2>
+      <p>
+        Every date your sources mention, in order. Relative dates like "three weeks ago" are worked out
+        against the document that said them, not against today — so a 2023 article saying "last quarter"
+        lands in 2023.
+      </p>
+    </div>
+    <span class="se-local-badge">Runs locally</span>
+  </div>
+
+  {% if timeline.events %}
+    <div class="row g-3 mb-4">
+      <div class="col-6 col-md-3"><div class="card"><div class="card-body text-center py-3">
+        <div class="display-6">{{ timeline.total }}</div><div class="text-muted small">dates found</div>
+      </div></div></div>
+      <div class="col-6 col-md-3"><div class="card"><div class="card-body text-center py-3">
+        <div class="display-6">{{ timeline.documents_scanned }}</div><div class="text-muted small">documents read</div>
+      </div></div></div>
+      <div class="col-6 col-md-3"><div class="card"><div class="card-body text-center py-3">
+        <div class="h4 mb-0 mt-2">{{ timeline.span.earliest[:4] if timeline.span.earliest else "—" }}</div>
+        <div class="text-muted small">earliest</div>
+      </div></div></div>
+      <div class="col-6 col-md-3"><div class="card"><div class="card-body text-center py-3">
+        <div class="h4 mb-0 mt-2">{{ timeline.span.latest[:4] if timeline.span.latest else "—" }}</div>
+        <div class="text-muted small">latest</div>
+      </div></div></div>
+    </div>
+
+    {% if timeline.buckets.by_decade %}
+      <div class="card mb-4">
+        <div class="card-body">
+          <h6 class="card-title">By decade</h6>
+          <div class="d-flex align-items-end gap-2" style="height: 110px;">
+            {% set maxcount = timeline.buckets.by_decade.values() | max %}
+            {% for decade, count in timeline.buckets.by_decade.items() | sort %}
+              <div class="text-center flex-grow-1">
+                <div style="background: var(--se-primary); border-radius: 4px 4px 0 0; height: {{ ((count / maxcount) * 80) | round | int }}px;" title="{{ count }} dates"></div>
+                <div class="small text-muted mt-1">{{ decade }}</div>
+                <div class="small fw-semibold">{{ count }}</div>
+              </div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+    {% endif %}
+
+    <div class="se-timeline">
+      {% for event in timeline.events %}
+        <div class="se-timeline-item">
+          <div class="se-timeline-date">
+            {{ event.start_date }}{% if event.end_date != event.start_date %} → {{ event.end_date }}{% endif %}
+            <span class="text-muted fw-normal">· {{ event.precision }}</span>
+          </div>
+          <div>
+            &ldquo;{{ event.text }}&rdquo; —
+            <a href="{{ url_for('v2.entry_workspace', entry_id=event.document_id) }}">{{ event.document_title }}</a>
+          </div>
+          {% if event.snippet %}<div class="small text-muted">{{ event.snippet }}</div>{% endif %}
+        </div>
+      {% endfor %}
+    </div>
+  {% else %}
+    <div class="se-empty">
+      <h5>No dates found yet</h5>
+      <p>
+        Once you've summarized a few documents that mention dates, they'll be laid out here in order.
+      </p>
+      <a class="btn btn-primary" href="{{ url_for('routes.text') }}">Summarize something</a>
+    </div>
+  {% endif %}
+</div>
+{% endblock %}

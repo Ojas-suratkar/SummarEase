@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Audio Summarizer - SummarEase{% endblock %}
+{% block content %}
+<h2>Summarize audio</h2>
+<p class="text-muted small">Podcasts, voice memos, meetings -- record right here or upload a file, up to 45MB (.mp3, .wav, .m4a, .ogg, .flac, .aac).</p>
+
+<div class="se-recorder card mb-3" data-kind="audio" data-target-input="audio">
+  <div class="card-body">
+    <h6 class="card-title mb-2">Record from your microphone</h6>
+    <button type="button" class="btn btn-sm btn-primary se-rec-start">Start recording</button>
+    <button type="button" class="btn btn-sm btn-danger se-rec-stop d-none">Stop recording</button>
+    <div class="se-rec-status text-muted small mt-2"></div>
+    <audio class="se-rec-preview w-100 mt-2 d-none" controls></audio>
+  </div>
+</div>
+
+<form method="post" action="{{ url_for('routes.audio') }}" enctype="multipart/form-data" data-job-kind="audio">
+  <div class="mb-3">
+    <label class="form-label" for="audio">...or choose an audio file</label>
+    <input class="form-control" type="file" id="audio" name="audio" accept="audio/*" required>
+  </div>
+  {% include "_detail_selector.html" %}
+  <button type="submit" class="btn btn-primary">Summarize</button>
+</form>
+
+<div id="result-container">{% include "_result.html" %}</div>
+{% endblock %}

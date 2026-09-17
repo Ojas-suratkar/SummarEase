@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}Knowledge Base - SummarEase{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
+  <h2 class="mb-0">Your knowledge base</h2>
+  <button type="button" id="topics-btn" class="btn btn-sm btn-outline-primary">View by topic</button>
+</div>
+<p class="text-muted">Search by meaning, not just keyword -- it finds relevant summaries even when the words don't match. "View by topic" auto-groups everything and labels each group.</p>
+
+<div id="topics-output" class="mb-4"></div>
+
+<form method="get" action="{{ url_for('routes.history') }}" class="d-flex gap-2 mb-4">
+  <input type="text" class="form-control" name="q" placeholder="Search everything you've summarized..." value="{{ query }}">
+  <button type="submit" class="btn btn-primary text-nowrap">Search</button>
+  {% if query %}
+    <a href="{{ url_for('routes.history') }}" class="btn btn-outline-secondary text-nowrap">Clear</a>
+  {% endif %}
+</form>
+
+{% if error %}
+  <div class="alert alert-danger">{{ error }}</div>
+{% endif %}
+
+{% if searched %}
+  <p class="text-muted small">{{ results|length }} result{{ "s" if results|length != 1 else "" }} for "{{ query }}", ranked by semantic similarity.</p>
+{% endif %}
+
+{% if results %}
+  <div class="list-group">
+    {% for item in results %}
+      <div class="list-group-item">
+        <div class="d-flex justify-content-between align-items-start">
+          <div>
+            <span class="badge text-bg-secondary text-uppercase">{{ item.source_type }}</span>
+            {% if item.source_ref %}<span class="text-muted small ms-1">{{ item.source_ref }}</span>{% endif %}
+          </div>
+          <div class="text-end">
+            {% if item.similarity is defined %}
+              <span class="badge text-bg-light text-muted">similarity {{ item.similarity }}</span>
+            {% endif %}
+            <div class="text-muted small">{{ item.created_at[:19] }}</div>
+          </div>
+        </div>
+        <p class="mb-0 mt-2">{{ item.summary }}</p>
+        <div class="d-flex gap-2 mt-2">
+          <button type="button" class="btn btn-sm btn-outline-secondary related-btn" data-entry-id="{{ item.id }}">Related</button>
+          <button type="button" class="btn btn-sm btn-outline-secondary annotate-btn" data-entry-id="{{ item.id }}">Annotate</button>
+          <button type="button" class="btn btn-sm btn-outline-secondary share-btn" data-entry-id="{{ item.id }}">Share</button>
+        </div>
+        <div class="related-output mt-2 small"></div>
+        <div class="annotate-output mt-2 small"></div>
+        <div class="share-output mt-2 small"></div>
+      </div>
+    {% endfor %}
+  </div>
+{% elif not error %}
+  <p class="text-muted">{% if searched %}No matches found.{% else %}Nothing summarized yet -- your history will show up here.{% endif %}</p>
+{% endif %}
+{% endblock %}

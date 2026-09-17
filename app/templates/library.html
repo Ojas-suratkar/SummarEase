@@ -1,0 +1,190 @@
+{% extends "base.html" %}
+{% block title %}Library - SummarEase{% endblock %}
+{% block content %}
+<div class="se-library">
+
+  <div class="se-page-head">
+    <div>
+      <h2>Library</h2>
+      <p>Everything you've saved. Rename it, tag it, file it away, or delete it for good.</p>
+    </div>
+    <div class="text-end small text-muted">
+      {{ stats.active }} active · {{ stats.archived }} archived · {{ stats.tags }} tags<br>
+      {{ storage.total_files }} stored files ({{ (storage.total_bytes / 1048576) | round(1) }} MB)
+    </div>
+  </div>
+
+  {% if orphans %}
+  <div class="alert alert-info">
+    <strong>{{ orphans | length }} recording{{ "s" if orphans | length != 1 else "" }} saved but never summarized.</strong>
+    These were captured and kept, so nothing was lost.
+    <div class="mt-2 d-flex gap-2 flex-wrap">
+      {% for orphan in orphans %}
+        <a class="btn btn-sm btn-outline-primary" href="{{ url_for('v2.serve_source', asset_id=orphan.id) }}" target="_blank" rel="noopener">
+          {{ orphan.filename or orphan.kind }}
+        </a>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  <form method="get" class="row g-2 mb-3" action="{{ url_for('v2.library') }}">
+    <div class="col-md-5">
+      <input type="text" class="form-control" name="q" value="{{ query }}" placeholder="Search titles, summaries and notes...">
+    </div>
+    <div class="col-md-3">
+      <select class="form-select" name="type" onchange="this.form.submit()">
+        <option value="">Any kind</option>
+        {% for t in types %}
+          <option value="{{ t.source_type }}" {{ "selected" if active_type == t.source_type }}>{{ t.source_type }} ({{ t.count }})</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-md-3">
+      <select class="form-select" name="tag" onchange="this.form.submit()">
+        <option value="">Any tag</option>
+        {% for t in tags %}
+          <option value="{{ t.tag }}" {{ "selected" if active_tag == t.tag }}>{{ t.tag }} ({{ t.count }})</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-md-1 d-grid">
+      <button type="submit" class="btn btn-primary">Go</button>
+    </div>
+    {% if showing_archived %}<input type="hidden" name="archived" value="1">{% endif %}
+  </form>
+
+  <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+    <div class="btn-group btn-group-sm">
+      <a class="btn {{ 'btn-primary' if not showing_archived else 'btn-outline-secondary' }}" href="{{ url_for('v2.library') }}">Active ({{ stats.active }})</a>
+      <a class="btn {{ 'btn-primary' if showing_archived else 'btn-outline-secondary' }}" href="{{ url_for('v2.library', archived=1) }}">Archived ({{ stats.archived }})</a>
+    </div>
+    <label class="small text-muted">
+      <input type="checkbox" id="select-all"> Select all on this page
+    </label>
+  </div>
+
+  {% if listing.entries %}
+    <div id="entry-rows">
+      {% for entry in listing.entries %}
+        <div class="se-lib-row" data-id="{{ entry.id }}">
+          <input type="checkbox" class="form-check-input mt-1 row-check" value="{{ entry.id }}" aria-label="Select {{ entry.title }}">
+          <div class="flex-grow-1 min-width-0">
+            <div class="d-flex align-items-center gap-2 flex-wrap">
+              <a class="se-lib-title" href="{{ url_for('v2.entry_workspace', entry_id=entry.id) }}">{{ entry.title }}</a>
+              <span class="badge text-bg-light text-muted text-uppercase">{{ entry.source_type }}</span>
+              {% if entry.is_pinned %}<span class="badge text-bg-light text-muted">pinned</span>{% endif %}
+            </div>
+            <p class="mb-1 mt-1 small text-muted">{{ entry.summary[:200] }}{% if entry.summary | length > 200 %}...{% endif %}</p>
+            <div class="small">
+              {% for tag in entry.tags %}<span class="se-tag">{{ tag }}</span>{% endfor %}
+              <span class="text-muted">{{ entry.created_at[:10] }}</span>
+              {% if entry.notes %}<span class="text-muted">· has notes</span>{% endif %}
+            </div>
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+
+    {% if listing.has_more %}
+      <div class="text-center my-3">
+        <a class="btn btn-outline-secondary" href="{{ url_for('v2.library', q=query, tag=active_tag, type=active_type, offset=listing.offset + listing.limit, archived=1 if showing_archived else None) }}">
+          Load the next {{ listing.limit }}
+        </a>
+      </div>
+    {% endif %}
+
+    <div class="se-bulkbar d-none" id="bulkbar">
+      <span id="selected-count">0 selected</span>
+      <button type="button" class="btn btn-sm btn-light" data-bulk="archive">Archive</button>
+      <button type="button" class="btn btn-sm btn-light" data-bulk="unarchive">Restore</button>
+      <button type="button" class="btn btn-sm btn-light" data-bulk="pin">Pin</button>
+      <input type="text" class="form-control form-control-sm" id="bulk-tag" placeholder="tag name" style="width: 140px;">
+      <button type="button" class="btn btn-sm btn-light" data-bulk="tag">Add tag</button>
+      <button type="button" class="btn btn-sm btn-danger ms-auto" data-bulk="delete">Delete</button>
+    </div>
+  {% else %}
+    <div class="se-empty">
+      <h5>{% if query or active_tag or active_type %}Nothing matched{% else %}Nothing here yet{% endif %}</h5>
+      <p>
+        {% if query or active_tag or active_type %}
+          Try a different search, or clear the filters.
+        {% else %}
+          Summarize something and it'll show up here, with its original file kept alongside it.
+        {% endif %}
+      </p>
+      {% if query or active_tag or active_type %}
+        <a class="btn btn-outline-secondary" href="{{ url_for('v2.library') }}">Clear filters</a>
+      {% else %}
+        <a class="btn btn-primary" href="{{ url_for('routes.text') }}">Summarize something</a>
+      {% endif %}
+    </div>
+  {% endif %}
+</div>
+
+<script>
+(function () {
+  const bulkbar = document.getElementById("bulkbar");
+  if (!bulkbar) return;
+  const countEl = document.getElementById("selected-count");
+
+  function selected() {
+    return Array.from(document.querySelectorAll(".row-check:checked")).map(c => parseInt(c.value, 10));
+  }
+
+  function refresh() {
+    const ids = selected();
+    countEl.textContent = ids.length + " selected";
+    bulkbar.classList.toggle("d-none", ids.length === 0);
+    document.querySelectorAll(".se-lib-row").forEach(row => {
+      const check = row.querySelector(".row-check");
+      row.classList.toggle("selected", check && check.checked);
+    });
+  }
+
+  document.addEventListener("change", (e) => {
+    if (e.target.classList.contains("row-check")) refresh();
+    if (e.target.id === "select-all") {
+      document.querySelectorAll(".row-check").forEach(c => { c.checked = e.target.checked; });
+      refresh();
+    }
+  });
+
+  bulkbar.addEventListener("click", async (e) => {
+    const action = e.target.getAttribute("data-bulk");
+    if (!action) return;
+    const ids = selected();
+    if (!ids.length) return;
+
+    if (action === "delete") {
+      const ok = await window.seConfirm(
+        `Permanently delete ${ids.length} item${ids.length === 1 ? "" : "s"}? Their summaries, notes and stored original files all go. This can't be undone.`,
+        `Delete ${ids.length}`
+      );
+      if (!ok) return;
+    }
+
+    fetch("/api/entries/bulk", {
+      method: "POST", credentials: "same-origin",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        entry_ids: ids,
+        action: action,
+        value: document.getElementById("bulk-tag").value
+      })
+    })
+      .then(r => r.json())
+      .then(result => {
+        window.seToast(`${result.affected} item${result.affected === 1 ? "" : "s"} updated.`, "success");
+        setTimeout(() => location.reload(), 600);
+      })
+      .catch(() => window.seToast("That didn't work.", "error"));
+  });
+})();
+</script>
+
+<style>
+  .se-library .min-width-0 { min-width: 0; }
+  .se-library .se-lib-row p { overflow-wrap: anywhere; }
+</style>
+{% endblock %}

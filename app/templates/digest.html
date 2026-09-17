@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}Weekly Digest - SummarEase{% endblock %}
+{% block content %}
+<h2>Weekly digest</h2>
+<p class="text-muted">Everything you've summarized and everything your watchlist caught changing in the last {{ digest.period_days }} days, in one review. Generated once per week.</p>
+
+{% if not digest.has_content %}
+  <div class="card shadow-sm">
+    <div class="card-body text-center py-5">
+      <p class="text-muted mb-0">Nothing in the last {{ digest.period_days }} days yet -- summarize something or add a watch, and check back.</p>
+    </div>
+  </div>
+{% else %}
+  {% if digest.narrative %}
+    <div class="card shadow-sm mb-3">
+      <div class="card-body">
+        <h5 class="card-title">This week</h5>
+        <p class="card-text">{{ digest.narrative }}</p>
+        {% if digest.highlights %}
+          <ul class="mb-0">
+            {% for h in digest.highlights %}<li>{{ h }}</li>{% endfor %}
+          </ul>
+        {% endif %}
+      </div>
+    </div>
+  {% endif %}
+
+  <div class="row g-3">
+    <div class="col-md-6">
+      <h6 class="se-section-label text-uppercase">Summarized ({{ digest.entries|length }})</h6>
+      {% if digest.entries %}
+        <div class="list-group">
+          {% for e in digest.entries %}
+            <div class="list-group-item">
+              <span class="badge text-bg-secondary text-uppercase">{{ e.source_type }}</span>
+              <span class="text-muted small">{{ e.source_ref }}</span>
+              <div class="small mt-1">{{ e.summary[:150] }}{% if e.summary|length > 150 %}...{% endif %}</div>
+            </div>
+          {% endfor %}
+        </div>
+      {% else %}
+        <p class="text-muted small">Nothing summarized this period.</p>
+      {% endif %}
+    </div>
+    <div class="col-md-6">
+      <h6 class="se-section-label text-uppercase">Watchlist changes ({{ digest.watch_items|length }})</h6>
+      {% if digest.watch_items %}
+        <div class="list-group">
+          {% for i in digest.watch_items %}
+            <div class="list-group-item">
+              <div class="fw-semibold small">{{ i.headline }}</div>
+              <div class="text-muted small">{{ i.watch_label }}</div>
+            </div>
+          {% endfor %}
+        </div>
+      {% else %}
+        <p class="text-muted small">No watched pages changed this period.</p>
+      {% endif %}
+    </div>
+  </div>
+{% endif %}
+{% endblock %}

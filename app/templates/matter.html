@@ -1,0 +1,365 @@
+{% extends "base.html" %}
+{% block title %}{{ matter.reference }} {{ matter.title }} - SummarEase{% endblock %}
+{% block content %}
+<div class="se-matter" data-matter-id="{{ matter.id }}">
+
+  <div class="se-page-head">
+    <div>
+      <div class="se-ref">{{ matter.reference }} &middot; {{ matter.kind_label }}</div>
+      <h2 class="mb-1">{{ matter.title }}</h2>
+      <p class="mb-0">
+        {% if matter.counterparty %}Other party: {{ matter.counterparty }} &middot; {% endif %}
+        Opened {{ matter.opened_at[:10] }} &middot; {{ stats.record_count }} record{{ "s" if stats.record_count != 1 }}
+      </p>
+    </div>
+    <div class="d-flex gap-2 flex-wrap align-items-start">
+      <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('matters.matter_verify', matter_id=matter.id) }}">Check integrity</a>
+      <a class="btn btn-sm btn-primary" href="{{ url_for('matters.matter_pack', matter_id=matter.id) }}">Export pack</a>
+    </div>
+  </div>
+
+  {% if request.args.get('added') %}
+    <div class="alert alert-success">Record entered and sealed.</div>
+  {% endif %}
+  {% if request.args.get('error') == 'empty' %}
+    <div class="alert alert-warning">Nothing was entered — add a file, some text, or a description.</div>
+  {% endif %}
+  {% if request.args.get('sealed') %}
+    <div class="alert alert-success">
+      Sealed. Publish the fingerprint below somewhere outside this system to fix the date.
+    </div>
+  {% endif %}
+
+  <div class="row g-4">
+
+    <!-- ===================== Records ===================== -->
+    <div class="col-lg-8">
+
+      <div class="card mb-4">
+        <div class="card-body">
+          <h5 class="card-title">Add a record</h5>
+          <p class="text-muted small">
+            Sealed the moment it is entered. Descriptions and times are sealed too, so they cannot be
+            revised afterwards — enter a correction as a new record instead.
+          </p>
+          <form method="post" action="{{ url_for('matters.record_add', matter_id=matter.id) }}"
+                enctype="multipart/form-data" class="row g-3" id="record-form">
+            <div class="col-md-3">
+              <label class="form-label" for="kind">Kind</label>
+              <select class="form-select" id="kind" name="kind">
+                {% for value, label in record_kinds %}<option value="{{ value }}">{{ label }}</option>{% endfor %}
+              </select>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label" for="occurred_at">When it happened</label>
+              <input class="form-control" type="datetime-local" id="occurred_at" name="occurred_at">
+              <div class="form-text">Leave blank to use now.</div>
+            </div>
+            <div class="col-md-5">
+              <label class="form-label" for="file">File</label>
+              <input class="form-control" type="file" id="file" name="file">
+            </div>
+            <div class="col-12">
+              <label class="form-label" for="note">Description</label>
+              <input class="form-control" type="text" id="note" name="note"
+                     placeholder="What this shows, in your own words. Written now, sealed now.">
+            </div>
+            <div class="col-12" id="text-field" hidden>
+              <label class="form-label" for="text">Statement</label>
+              <textarea class="form-control" id="text" name="text" rows="4"
+                        placeholder="Write what happened."></textarea>
+            </div>
+            <div class="col-12" id="url-field" hidden>
+              <label class="form-label" for="url">Address</label>
+              <input class="form-control" type="url" id="url" name="url" placeholder="https://">
+            </div>
+            <div class="col-12">
+              <button type="submit" class="btn btn-primary">Enter and seal</button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <h5 class="mb-3">Records</h5>
+      {% if records %}
+        <div class="se-record-list">
+          {% for record in records %}
+            <div class="se-record" id="record-{{ record.sequence }}">
+              <div class="se-record-seq">{{ record.sequence }}</div>
+              <div class="se-record-body">
+                <div class="d-flex justify-content-between align-items-start gap-2 flex-wrap">
+                  <div>
+                    <span class="badge text-bg-secondary">{{ record.kind_label }}</span>
+                    <span class="text-muted small">
+                      {{ (record.occurred_at or record.captured_at)[:16] | replace("T", " ") }}
+                    </span>
+                  </div>
+                  <code class="se-fingerprint" title="Sealed fingerprint: {{ record.entry_hash }}">{{ record.fingerprint }}</code>
+                </div>
+
+                {% if record.note %}<p class="mb-1 mt-2">{{ record.note }}</p>{% endif %}
+
+                {% if record.asset and record.asset.available %}
+                  <div class="mt-2">
+                    {% if record.kind == "audio" %}
+                      <audio class="w-100" controls preload="none" src="{{ url_for('matters.record_file', record_id=record.id) }}"></audio>
+                    {% elif record.kind == "video" %}
+                      <video class="w-100 rounded" style="max-height: 340px;" controls preload="none" src="{{ url_for('matters.record_file', record_id=record.id) }}"></video>
+                    {% elif record.kind == "image" %}
+                      <a href="{{ url_for('matters.record_file', record_id=record.id) }}" target="_blank" rel="noopener">
+                        <img class="rounded" style="max-width: 100%; max-height: 320px; object-fit: contain;"
+                             src="{{ url_for('matters.record_file', record_id=record.id) }}" alt="{{ record.note or 'Record' }}">
+                      </a>
+                    {% else %}
+                      <a class="btn btn-sm btn-outline-primary"
+                         href="{{ url_for('matters.record_file', record_id=record.id) }}" target="_blank" rel="noopener">
+                        Open {{ record.asset.filename }}
+                      </a>
+                    {% endif %}
+                    <div class="small text-muted mt-1">
+                      {{ record.asset.filename }} &middot; {{ (record.asset.byte_size / 1024) | round | int }} KB
+                    </div>
+                  </div>
+                {% elif record.asset %}
+                  <div class="alert alert-warning py-2 small mt-2 mb-0">
+                    The original file is missing from storage. Integrity checks will report this.
+                  </div>
+                {% endif %}
+
+                {% if record.summary %}
+                  <details class="mt-2">
+                    <summary class="small text-muted">Summary</summary>
+                    <p class="small mt-2 mb-0">{{ record.summary }}</p>
+                  </details>
+                {% endif %}
+              </div>
+            </div>
+          {% endfor %}
+        </div>
+      {% else %}
+        <div class="se-empty">
+          <h5>No records yet</h5>
+          <p>Add the first one above. Photographs, recordings, documents and written statements all work.</p>
+        </div>
+      {% endif %}
+    </div>
+
+    <!-- ===================== Side panel ===================== -->
+    <div class="col-lg-4">
+
+      <div class="card mb-3">
+        <div class="card-body">
+          <h6 class="card-title">Seal</h6>
+          {% if seal %}
+            <p class="text-muted small mb-2">
+              Last sealed {{ seal.sealed_at[:16] | replace("T", " ") }}, covering {{ seal.record_count }}
+              record{{ "s" if seal.record_count != 1 }}.
+            </p>
+            <div class="se-rootbox mb-2">{{ seal.merkle_root }}</div>
+            <details class="mb-2">
+              <summary class="small">Text to publish</summary>
+              <textarea class="form-control form-control-sm mt-2" rows="7" readonly id="anchor-text">{{ seal.anchor_text }}</textarea>
+              <button type="button" class="btn btn-sm btn-outline-secondary mt-2" id="copy-anchor">Copy</button>
+            </details>
+            <p class="text-muted small">
+              Send this to yourself, your solicitor, or post it publicly. A commitment already in someone
+              else's hands cannot be produced later, which is what fixes the date.
+            </p>
+            <div class="mb-2">
+              <label class="form-label small" for="anchor-note">Where did you publish it?</label>
+              <input class="form-control form-control-sm" id="anchor-note" data-seal-id="{{ seal.id }}"
+                     value="{{ seal.anchored_note }}" placeholder="Emailed to solicitor, 3 March">
+            </div>
+          {% else %}
+            <p class="text-muted small">
+              Not sealed yet. Sealing fixes the records as they stand and produces a short fingerprint you
+              can publish elsewhere.
+            </p>
+          {% endif %}
+          <form method="post" action="{{ url_for('matters.matter_seal', matter_id=matter.id) }}">
+            <button type="submit" class="btn btn-sm btn-primary w-100"
+                    {{ "disabled" if not records }}>
+              {{ "Seal again" if seal else "Seal these records" }}
+            </button>
+          </form>
+        </div>
+      </div>
+
+      <div class="card mb-3">
+        <div class="card-body">
+          <h6 class="card-title">Sequence of events</h6>
+          <p class="text-muted small">Dates mentioned across the records, in order.</p>
+          <div id="chronology"><span class="text-muted small">Reading records…</span></div>
+        </div>
+      </div>
+
+      <div class="card mb-3">
+        <div class="card-body">
+          <h6 class="card-title">Figures that disagree</h6>
+          <p class="text-muted small">Where two records state a different number for the same thing.</p>
+          <div id="inconsistencies"><span class="text-muted small">Checking…</span></div>
+        </div>
+      </div>
+
+      <div class="card mb-3">
+        <div class="card-body">
+          <h6 class="card-title">Matter details</h6>
+          <form method="post" action="{{ url_for('matters.matter_update', matter_id=matter.id) }}">
+            <div class="mb-2">
+              <label class="form-label small" for="m-title">Title</label>
+              <input class="form-control form-control-sm" id="m-title" name="title" value="{{ matter.title }}">
+            </div>
+            <div class="mb-2">
+              <label class="form-label small" for="m-counterparty">Other party</label>
+              <input class="form-control form-control-sm" id="m-counterparty" name="counterparty" value="{{ matter.counterparty }}">
+            </div>
+            <div class="mb-2">
+              <label class="form-label small" for="m-kind">Type</label>
+              <select class="form-select form-select-sm" id="m-kind" name="kind">
+                {% for value, label in kinds %}
+                  <option value="{{ value }}" {{ "selected" if matter.kind == value }}>{{ label }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="mb-2">
+              <label class="form-label small" for="m-description">Background</label>
+              <textarea class="form-control form-control-sm" id="m-description" name="description" rows="3">{{ matter.description }}</textarea>
+            </div>
+            <button type="submit" class="btn btn-sm btn-outline-secondary w-100">Save details</button>
+          </form>
+          <p class="text-muted small mt-2 mb-0">
+            These describe the matter and sit outside the sealed records, so editing them never affects
+            verification.
+          </p>
+        </div>
+      </div>
+
+      {% if seals | length > 1 %}
+        <div class="card">
+          <div class="card-body">
+            <h6 class="card-title">Earlier seals</h6>
+            <div class="small">
+              {% for s in seals[1:] %}
+                <div class="border-bottom py-2">
+                  {{ s.sealed_at[:16] | replace("T", " ") }} &middot; {{ s.record_count }} records
+                  <div class="se-fingerprint">{{ s.root_fingerprint }}</div>
+                </div>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  const matterId = {{ matter.id }};
+
+  // Reveal only the field the chosen kind needs. A form showing a file
+  // picker, a textarea and a URL box at once reads as three questions
+  // when it is one.
+  const kindSelect = document.getElementById("kind");
+  const fileField = document.getElementById("file").closest(".col-md-5");
+  const textField = document.getElementById("text-field");
+  const urlField = document.getElementById("url-field");
+
+  function syncFields() {
+    const kind = kindSelect.value;
+    const wantsFile = ["audio", "video", "image", "pdf"].includes(kind);
+    fileField.hidden = !wantsFile;
+    textField.hidden = kind !== "text";
+    urlField.hidden = kind !== "url";
+  }
+  kindSelect.addEventListener("change", syncFields);
+  syncFields();
+
+  const copyButton = document.getElementById("copy-anchor");
+  if (copyButton) {
+    copyButton.addEventListener("click", function () {
+      const field = document.getElementById("anchor-text");
+      field.select();
+      navigator.clipboard.writeText(field.value)
+        .then(function () { window.seToast("Copied. Send it somewhere outside this system.", "success"); })
+        .catch(function () { window.seToast("Select the text and copy it manually.", "error"); });
+    });
+  }
+
+  const anchorNote = document.getElementById("anchor-note");
+  if (anchorNote) {
+    let timer;
+    anchorNote.addEventListener("input", function () {
+      clearTimeout(timer);
+      timer = setTimeout(function () {
+        fetch("/api/seal/" + anchorNote.getAttribute("data-seal-id") + "/anchor", {
+          method: "POST", credentials: "same-origin",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ note: anchorNote.value })
+        }).catch(function () {});
+      }, 700);
+    });
+  }
+
+  fetch("/api/matter/" + matterId + "/chronology", { credentials: "same-origin" })
+    .then(function (r) { return r.json(); })
+    .then(function (data) {
+      const host = document.getElementById("chronology");
+      if (!data.events || !data.events.length) {
+        host.innerHTML = '<span class="text-muted small">No dates found in the records yet.</span>';
+        return;
+      }
+      host.innerHTML = '<div class="se-timeline">' + data.events.slice(0, 25).map(function (e) {
+        return '<div class="se-timeline-item"><div class="se-timeline-date">' + e.start_date +
+          '</div><div class="small">' + escapeHtml(e.text) + ' — ' + escapeHtml(e.document_title || "") +
+          '</div></div>';
+      }).join("") + "</div>";
+    })
+    .catch(function () {
+      document.getElementById("chronology").innerHTML =
+        '<span class="text-muted small">Could not read the records.</span>';
+    });
+
+  fetch("/api/matter/" + matterId + "/inconsistencies", { credentials: "same-origin" })
+    .then(function (r) { return r.json(); })
+    .then(function (data) {
+      const host = document.getElementById("inconsistencies");
+      if (!data.conflicts || !data.conflicts.length) {
+        host.innerHTML = '<span class="text-muted small">Nothing conflicting found' +
+          (data.total_quantities ? " across " + data.total_quantities + " figures." : ".") + '</span>';
+        return;
+      }
+      host.innerHTML = data.conflicts.map(function (c) {
+        return '<div class="border-start border-warning ps-2 mb-2"><strong class="small">' +
+          escapeHtml(c.subject || "figure") + '</strong><div class="small text-muted">' +
+          c.min + " vs " + c.max + (c.unit ? " " + escapeHtml(c.unit) : "") + "</div></div>";
+      }).join("");
+    })
+    .catch(function () {
+      document.getElementById("inconsistencies").innerHTML =
+        '<span class="text-muted small">Could not check.</span>';
+    });
+
+  function escapeHtml(value) {
+    const div = document.createElement("div");
+    div.textContent = value == null ? "" : String(value);
+    return div.innerHTML;
+  }
+})();
+</script>
+
+<style>
+  .se-matter .se-ref { font-family: "JetBrains Mono", monospace; font-size: 0.8rem;
+                       color: var(--se-ink-muted); letter-spacing: 0.03em; }
+  .se-matter .se-record { display: flex; gap: 0.9rem; padding: 1rem; border: 1px solid var(--se-border);
+                          border-radius: var(--se-radius-sm); background: var(--se-surface); margin-bottom: 0.7rem; }
+  .se-matter .se-record-seq { font-family: "JetBrains Mono", monospace; font-size: 0.8rem;
+                              color: var(--se-ink-faint); min-width: 1.6rem; padding-top: 0.15rem; }
+  .se-matter .se-record-body { flex-grow: 1; min-width: 0; }
+  .se-matter .se-fingerprint { font-family: "JetBrains Mono", monospace; font-size: 0.72rem;
+                               color: var(--se-ink-faint); white-space: nowrap; }
+  .se-matter .se-rootbox { font-family: "JetBrains Mono", monospace; font-size: 0.7rem;
+                           background: var(--se-surface-alt); border: 1px solid var(--se-border);
+                           border-radius: var(--se-radius-xs); padding: 0.5rem; word-break: break-all; }
+</style>
+{% endblock %}

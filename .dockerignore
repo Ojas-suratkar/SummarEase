@@ -1,0 +1,10 @@
+.venv_test/
+.venv/
+venv/
+__pycache__/
+*.pyc
+instance/
+.env
+.git/
+.flask_session/
+app/static/audio/*.mp3

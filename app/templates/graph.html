@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}Knowledge Graph - SummarEase{% endblock %}
+{% block content %}
+<h2>Knowledge graph</h2>
+<p class="text-muted">Every summary is compared to your most similar past ones and labeled -- <span class="text-success">supports</span>, <span class="text-danger">contradicts</span>, <span style="color:#0891b2">updates</span>, or <span class="text-muted">related</span>. Nothing here was linked by hand. Hover a node for its summary.</p>
+
+{% if node_count %}
+  <p class="text-muted small">{{ node_count }} entries, {{ edge_count }} auto-detected links.</p>
+  <div class="card shadow-sm">
+    <div class="card-body">
+      {{ svg | safe }}
+    </div>
+  </div>
+{% else %}
+  <p class="text-muted">Nothing in your knowledge base yet -- summarize a few things and come back.</p>
+{% endif %}
+{% endblock %}

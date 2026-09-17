@@ -1,0 +1,166 @@
+{% extends "base.html" %}
+{% block title %}Where did this come from? - SummarEase{% endblock %}
+{% block content %}
+<div class="se-trace">
+
+  <div class="se-page-head">
+    <div>
+      <h2>Where did this come from?</h2>
+      <p>
+        Click any sentence of a summary and this shows you the exact passage in the original it was drawn
+        from. Nothing here asks an AI whether the AI was right — it's sequence alignment, the same family of
+        algorithm used to compare DNA, run against the source text on this machine.
+      </p>
+    </div>
+    <span class="se-local-badge">Runs locally</span>
+  </div>
+
+  <form method="get" class="row g-2 mb-4" action="{{ url_for('v2.trace_page') }}">
+    <div class="col-md-9">
+      <select class="form-select" name="entry" onchange="this.form.submit()">
+        <option value="">Pick something you've summarized...</option>
+        {% for doc in documents %}
+          <option value="{{ doc.id }}" {{ "selected" if entry_id == doc.id }}>{{ doc.title }} ({{ doc.word_count }} words)</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-md-3 d-grid">
+      <button type="submit" class="btn btn-primary">Check it</button>
+    </div>
+  </form>
+
+  {% if trace and trace.available %}
+    {% set cov = trace.coverage %}
+    <div class="row g-3 mb-4">
+      <div class="col-6 col-md-3"><div class="card"><div class="card-body text-center py-3">
+        <div class="display-6">{{ (cov.coverage * 100) | round | int }}%</div>
+        <div class="text-muted small">traced to the source</div>
+      </div></div></div>
+      <div class="col-6 col-md-3"><div class="card"><div class="card-body text-center py-3">
+        <div class="display-6 text-success">{{ cov.strong }}</div>
+        <div class="text-muted small">closely matched</div>
+      </div></div></div>
+      <div class="col-6 col-md-3"><div class="card"><div class="card-body text-center py-3">
+        <div class="display-6 text-warning">{{ cov.partial }}</div>
+        <div class="text-muted small">loosely matched</div>
+      </div></div></div>
+      <div class="col-6 col-md-3"><div class="card"><div class="card-body text-center py-3">
+        <div class="display-6 text-danger">{{ cov.unsupported }}</div>
+        <div class="text-muted small">not found</div>
+      </div></div></div>
+    </div>
+
+    {% if cov.unsupported %}
+      <div class="alert alert-warning">
+        <strong>{{ cov.unsupported }} sentence{{ "s" if cov.unsupported != 1 else "" }} couldn't be traced to anything in the source.</strong>
+        That can mean the summary combined several ideas into one line, or it can mean the model wrote
+        something the source never said. Worth reading those closely.
+      </div>
+    {% endif %}
+
+    <div class="row g-4">
+      <div class="col-lg-6">
+        <div class="card h-100">
+          <div class="card-body">
+            <h5 class="card-title">The summary</h5>
+            <p class="text-muted small">Click a sentence to find it on the right.</p>
+            <div id="summary-sentences">
+              {% for item in trace.alignments %}
+                <span class="se-prov-sentence se-prov-{{ item.support }}"
+                      data-start="{{ item.start }}" data-end="{{ item.end }}"
+                      data-score="{{ item.score }}" data-support="{{ item.support }}">{{ item.sentence }}</span>
+              {% endfor %}
+            </div>
+            <div class="mt-3 small text-muted">
+              <span class="se-prov-sentence se-prov-strong">green</span> = found almost word for word ·
+              <span class="se-prov-sentence se-prov-partial">amber</span> = similar wording nearby ·
+              <span class="se-prov-sentence se-prov-none">red</span> = not found
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-lg-6">
+        <div class="card h-100">
+          <div class="card-body">
+            <h5 class="card-title">The original</h5>
+            <p class="text-muted small" id="match-info">Select a sentence on the left.</p>
+            <div class="se-source-pane" id="source-pane">{{ trace.source_text }}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <p class="text-muted small mt-3">
+      One honest caveat: a close match means the wording is present in the source, not that the claim is
+      true. A summary can stitch real phrases into something the source never actually said. This tells you
+      where to look — it doesn't tell you the summary is correct.
+    </p>
+
+  {% elif trace %}
+    <div class="se-empty">
+      <h5>
+        {% if trace.reason == "no_source_text" %}No text original to compare against{% else %}Can't check that one{% endif %}
+      </h5>
+      <p>
+        {% if trace.reason == "no_source_text" %}
+          This was a {{ trace.source_type }} summary, so the original is audio or an image rather than text.
+          There's nothing to align sentences against.
+        {% elif trace.reason == "no_summary" %}
+          That entry has no summary saved.
+        {% else %}
+          That entry doesn't exist, or belongs to another account.
+        {% endif %}
+      </p>
+    </div>
+  {% else %}
+    <div class="se-empty">
+      <h5>Pick something to check</h5>
+      <p>Choose one of your summaries above and this will map every sentence back to the source text.</p>
+    </div>
+  {% endif %}
+</div>
+
+<script>
+(function () {
+  const pane = document.getElementById("source-pane");
+  if (!pane) return;
+  const info = document.getElementById("match-info");
+  const sourceText = pane.textContent;
+
+  document.getElementById("summary-sentences").addEventListener("click", (event) => {
+    const sentence = event.target.closest(".se-prov-sentence");
+    if (!sentence) return;
+
+    document.querySelectorAll(".se-prov-sentence.active").forEach(el => el.classList.remove("active"));
+    sentence.classList.add("active");
+
+    const start = parseInt(sentence.getAttribute("data-start"), 10);
+    const end = parseInt(sentence.getAttribute("data-end"), 10);
+    const score = parseFloat(sentence.getAttribute("data-score"));
+    const support = sentence.getAttribute("data-support");
+
+    if (start < 0 || end < 0) {
+      pane.textContent = sourceText;
+      info.textContent = "Nothing in the source matches this sentence.";
+      return;
+    }
+
+    // Rebuild the pane with the matched span wrapped. Rebuilding from
+    // the original string each time avoids compounding markup from
+    // previous selections.
+    const before = document.createTextNode(sourceText.slice(0, start));
+    const hit = document.createElement("mark");
+    hit.className = "se-source-hit";
+    hit.textContent = sourceText.slice(start, end);
+    const after = document.createTextNode(sourceText.slice(end));
+
+    pane.replaceChildren(before, hit, after);
+
+    const label = support === "strong" ? "Close match" : "Loose match";
+    info.textContent = `${label} — ${Math.round(score * 100)}% similar, at character ${start} of the source.`;
+    hit.scrollIntoView({ block: "center", behavior: "smooth" });
+  });
+})();
+</script>
+{% endblock %}

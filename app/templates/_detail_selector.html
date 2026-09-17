@@ -1,0 +1,9 @@
+<div class="mb-3">
+  <label class="form-label" for="detail">Detail level</label>
+  <select class="form-select" id="detail" name="detail" style="max-width: 260px;">
+    <option value="brief" {% if detail == "brief" %}selected{% endif %}>Brief (~3 sentences)</option>
+    <option value="standard" {% if not detail or detail == "standard" %}selected{% endif %}>Standard (~5-6 sentences)</option>
+    <option value="detailed" {% if detail == "detailed" %}selected{% endif %}>Detailed (~9-10 sentences)</option>
+  </select>
+  <div class="form-text">Long sources are pre-filtered with TextRank before summarizing, so detail level also controls how much of the source survives that pass.</div>
+</div>

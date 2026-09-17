@@ -1,0 +1,594 @@
+{% extends "base.html" %}
+{% block title %}Canvas - SummarEase{% endblock %}
+
+{% block content %}
+{#
+  Everything below is scoped under .se-cv. The page-level class is the only
+  selector prefix used in the <style> block, so nothing here can reach the rest
+  of the app, and style.css stays untouched.
+#}
+<style>
+  .se-cv {
+    /* Full-bleed inside base.html's .container without editing base.html. */
+    width: 100vw;
+    margin-left: calc(50% - 50vw);
+    padding: 0 clamp(12px, 3vw, 32px);
+  }
+
+  .se-cv-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.6rem 1rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .se-cv-head h2 {
+    margin: 0;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+  }
+
+  .se-cv-head p {
+    margin: 0;
+    color: var(--se-ink-muted);
+    font-size: 0.9rem;
+    max-width: 62ch;
+  }
+
+  .se-cv-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.5rem 0.6rem;
+    background: var(--se-surface);
+    border: 1px solid var(--se-border);
+    border-radius: var(--se-radius) var(--se-radius) 0 0;
+    border-bottom: none;
+  }
+
+  .se-cv-sep {
+    width: 1px;
+    align-self: stretch;
+    background: var(--se-border);
+    margin: 0 0.25rem;
+  }
+
+  .se-cv-btn {
+    appearance: none;
+    border: 1px solid var(--se-border);
+    background: var(--se-surface);
+    color: var(--se-ink);
+    border-radius: var(--se-radius-sm, 10px);
+    padding: 0.32rem 0.7rem;
+    font-size: 0.85rem;
+    font-weight: 500;
+    line-height: 1.35;
+    cursor: pointer;
+    transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+  }
+
+  .se-cv-btn:hover:not(:disabled) {
+    background: var(--se-primary);
+    border-color: var(--se-primary);
+    color: #fff;
+  }
+
+  .se-cv-btn:disabled {
+    opacity: 0.42;
+    cursor: default;
+  }
+
+  .se-cv-btn.is-active {
+    background: var(--se-primary);
+    border-color: var(--se-primary);
+    color: #fff;
+  }
+
+  .se-cv-btn.se-cv-btn-primary {
+    background: var(--se-primary);
+    border-color: var(--se-primary);
+    color: #fff;
+  }
+
+  .se-cv-btn.se-cv-btn-primary:hover:not(:disabled) {
+    filter: brightness(1.08);
+  }
+
+  .se-cv-libbtn {
+    position: relative;
+  }
+
+  .se-cv-badge {
+    display: inline-block;
+    min-width: 1.25em;
+    margin-left: 0.35rem;
+    padding: 0 0.32em;
+    border-radius: 999px;
+    background: var(--se-primary);
+    color: #fff;
+    font-size: 0.7rem;
+    font-weight: 700;
+    line-height: 1.5;
+    text-align: center;
+  }
+
+  .se-cv-btn:hover .se-cv-badge {
+    background: #fff;
+    color: var(--se-primary);
+  }
+
+  .se-cv-swatches {
+    display: inline-flex;
+    gap: 0.25rem;
+    align-items: center;
+  }
+
+  .se-cv-swatch {
+    width: 20px;
+    height: 20px;
+    padding: 0;
+    border-radius: 6px;
+    border: 1px solid var(--se-border-strong, #d7d9e8);
+    cursor: pointer;
+    transition: transform 0.1s ease;
+  }
+
+  .se-cv-swatch:hover:not(:disabled) {
+    transform: scale(1.18);
+  }
+
+  .se-cv-swatch:disabled {
+    opacity: 0.4;
+    cursor: default;
+  }
+
+  .se-cv-zoomgroup {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.2rem;
+  }
+
+  .se-cv-zoomlabel {
+    min-width: 3.4em;
+    text-align: center;
+    font-size: 0.8rem;
+    font-variant-numeric: tabular-nums;
+    color: var(--se-ink-muted);
+  }
+
+  .se-cv-select {
+    border: 1px solid var(--se-border);
+    border-radius: var(--se-radius-sm, 10px);
+    background: var(--se-surface);
+    color: var(--se-ink-muted);
+    font-size: 0.78rem;
+    padding: 0.28rem 0.4rem;
+  }
+
+  .se-cv-spacer {
+    flex: 1 1 auto;
+  }
+
+  .se-cv-status {
+    font-size: 0.8rem;
+    color: var(--se-ink-muted);
+  }
+
+  .se-cv-save {
+    font-size: 0.78rem;
+    color: var(--se-ink-muted);
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+  }
+
+  .se-cv-save::before {
+    content: "";
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--se-border-strong, #d7d9e8);
+  }
+
+  .se-cv-save[data-tone="ok"]::before { background: var(--se-success, #16a34a); }
+  .se-cv-save[data-tone="pending"]::before { background: var(--se-warning, #d97706); }
+  .se-cv-save[data-tone="warn"]::before { background: var(--se-danger, #dc2626); }
+
+  /* ---- stage ---- */
+
+  .se-cv-stage {
+    position: relative;
+    height: clamp(460px, calc(100vh - 260px), 1100px);
+    border: 1px solid var(--se-border);
+    border-radius: 0 0 var(--se-radius) var(--se-radius);
+    background: var(--se-bg);
+    box-shadow: var(--se-shadow);
+    overflow: hidden;
+  }
+
+  .se-cv-surface {
+    display: block;
+    width: 100%;
+    height: 100%;
+    touch-action: none;
+    outline: none;
+  }
+
+  .se-cv-surface.is-panning {
+    cursor: grabbing;
+  }
+
+  /* ---- minimap ---- */
+
+  .se-cv-minimap {
+    position: absolute;
+    right: 12px;
+    bottom: 12px;
+    width: 190px;
+    height: 126px;
+    border: 1px solid var(--se-border);
+    border-radius: var(--se-radius-sm, 10px);
+    background: var(--se-surface);
+    box-shadow: var(--se-shadow-sm, 0 1px 2px rgba(26, 29, 41, 0.05));
+    cursor: crosshair;
+    touch-action: none;
+  }
+
+  @media (max-width: 640px) {
+    .se-cv-minimap { display: none; }
+  }
+
+  /* ---- floating panels ---- */
+
+  .se-cv-panel {
+    position: absolute;
+    top: 12px;
+    background: var(--se-surface);
+    border: 1px solid var(--se-border);
+    border-radius: var(--se-radius);
+    box-shadow: var(--se-shadow);
+    display: flex;
+    flex-direction: column;
+    max-height: calc(100% - 24px);
+    z-index: 3;
+  }
+
+  .se-cv-library {
+    left: 12px;
+    width: 286px;
+  }
+
+  .se-cv-help {
+    right: 12px;
+    width: 314px;
+  }
+
+  .se-cv-panel-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    padding: 0.6rem 0.75rem;
+    border-bottom: 1px solid var(--se-border);
+  }
+
+  .se-cv-panel-head h3 {
+    margin: 0;
+    font-size: 0.9rem;
+    font-weight: 600;
+  }
+
+  .se-cv-panel-close {
+    border: none;
+    background: none;
+    color: var(--se-ink-muted);
+    font-size: 1.1rem;
+    line-height: 1;
+    padding: 0 0.25rem;
+    cursor: pointer;
+  }
+
+  .se-cv-panel-close:hover { color: var(--se-ink); }
+
+  .se-cv-panel-body {
+    overflow-y: auto;
+    padding: 0.6rem 0.75rem 0.75rem;
+  }
+
+  .se-cv-search {
+    width: 100%;
+    border: 1px solid var(--se-border);
+    border-radius: var(--se-radius-sm, 10px);
+    padding: 0.35rem 0.55rem;
+    font-size: 0.85rem;
+    margin-bottom: 0.5rem;
+    background: var(--se-surface-alt, #f9fafc);
+    color: var(--se-ink);
+  }
+
+  .se-cv-lib-item {
+    display: block;
+    width: 100%;
+    text-align: left;
+    border: 1px solid transparent;
+    border-radius: var(--se-radius-sm, 10px);
+    background: none;
+    padding: 0.4rem 0.5rem;
+    cursor: pointer;
+  }
+
+  .se-cv-lib-item:hover {
+    background: var(--se-surface-alt, #f9fafc);
+    border-color: var(--se-border);
+  }
+
+  .se-cv-lib-title {
+    display: block;
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: var(--se-ink);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .se-cv-lib-meta {
+    display: block;
+    font-size: 0.73rem;
+    color: var(--se-ink-muted);
+  }
+
+  .se-cv-lib-empty {
+    margin: 0.4rem 0 0;
+    font-size: 0.83rem;
+    color: var(--se-ink-muted);
+  }
+
+  .se-cv-help dl {
+    margin: 0;
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 0.3rem 0.75rem;
+    font-size: 0.82rem;
+    align-items: baseline;
+  }
+
+  .se-cv-help dt { font-weight: 500; }
+  .se-cv-help dd { margin: 0; color: var(--se-ink-muted); }
+
+  .se-cv-key {
+    display: inline-block;
+    border: 1px solid var(--se-border-strong, #d7d9e8);
+    border-bottom-width: 2px;
+    border-radius: 5px;
+    padding: 0 0.32em;
+    background: var(--se-surface-alt, #f9fafc);
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 0.72rem;
+    white-space: nowrap;
+  }
+
+  /* ---- empty state ---- */
+
+  .se-cv-empty {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+    z-index: 2;
+  }
+
+  .se-cv-empty-inner {
+    pointer-events: auto;
+    max-width: 430px;
+    text-align: center;
+    background: var(--se-surface);
+    border: 1px solid var(--se-border);
+    border-radius: var(--se-radius);
+    box-shadow: var(--se-shadow);
+    padding: 1.5rem 1.6rem;
+  }
+
+  .se-cv-empty-inner h3 {
+    font-size: 1.05rem;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+  }
+
+  .se-cv-empty-inner p {
+    color: var(--se-ink-muted);
+    font-size: 0.88rem;
+    margin-bottom: 0.9rem;
+  }
+
+  /* ---- inline text editor over the canvas ---- */
+
+  .se-cv-floatinput {
+    position: absolute;
+    width: 188px;
+    z-index: 4;
+    border: 1px solid var(--se-primary);
+    border-radius: var(--se-radius-sm, 10px);
+    background: var(--se-surface);
+    color: var(--se-ink);
+    padding: 0.3rem 0.5rem;
+    font-size: 0.82rem;
+    box-shadow: var(--se-shadow);
+  }
+</style>
+
+<div class="se-cv"
+     id="se-canvas-root"
+     data-api-canvas="/api/canvas"
+     data-api-items="/api/canvas/items">
+
+  <div class="se-cv-head">
+    <h2>Canvas</h2>
+    <p>
+      A place for your summaries instead of a list. Drag cards where they make
+      sense to you, group what belongs together, and draw the links you see.
+    </p>
+  </div>
+
+  <div class="se-cv-toolbar" role="toolbar" aria-label="Canvas tools">
+    <button type="button" class="se-cv-btn se-cv-btn-primary se-cv-libbtn" data-act="library">
+      Add from library<span class="se-cv-badge d-none" data-library-count></span>
+    </button>
+
+    <span class="se-cv-sep" aria-hidden="true"></span>
+
+    <button type="button" class="se-cv-btn" data-act="layout">Auto-arrange</button>
+    <button type="button" class="se-cv-btn" data-act="fit" title="Fit everything in view (F)">Fit</button>
+
+    <span class="se-cv-sep" aria-hidden="true"></span>
+
+    <span class="se-cv-zoomgroup">
+      <button type="button" class="se-cv-btn" data-act="zoom-out" aria-label="Zoom out">&minus;</button>
+      <button type="button" class="se-cv-btn se-cv-zoomlabel" data-act="zoom-reset"
+              title="Reset to 100%"><span data-zoom-label>100%</span></button>
+      <button type="button" class="se-cv-btn" data-act="zoom-in" aria-label="Zoom in">+</button>
+    </span>
+
+    <span class="se-cv-sep" aria-hidden="true"></span>
+
+    <button type="button" class="se-cv-btn" data-act="group" data-needs-selection>Group</button>
+    <button type="button" class="se-cv-btn" data-act="pin" data-needs-selection
+            title="Pinned cards stay put during auto-arrange">Pin</button>
+    <button type="button" class="se-cv-btn" data-act="delete" data-needs-selection>Remove</button>
+
+    <span class="se-cv-swatches" role="group" aria-label="Card colour">
+      <button type="button" class="se-cv-swatch" data-color="slate" data-needs-selection
+              style="background:#ffffff" title="Slate" aria-label="Slate"></button>
+      <button type="button" class="se-cv-swatch" data-color="indigo" data-needs-selection
+              style="background:#eef0ff" title="Indigo" aria-label="Indigo"></button>
+      <button type="button" class="se-cv-swatch" data-color="teal" data-needs-selection
+              style="background:#e6f8fa" title="Teal" aria-label="Teal"></button>
+      <button type="button" class="se-cv-swatch" data-color="amber" data-needs-selection
+              style="background:#fdf3e3" title="Amber" aria-label="Amber"></button>
+      <button type="button" class="se-cv-swatch" data-color="rose" data-needs-selection
+              style="background:#fdeaf0" title="Rose" aria-label="Rose"></button>
+      <button type="button" class="se-cv-swatch" data-color="green" data-needs-selection
+              style="background:#e9f7ee" title="Green" aria-label="Green"></button>
+      <button type="button" class="se-cv-swatch" data-color="violet" data-needs-selection
+              style="background:#f4ecfd" title="Violet" aria-label="Violet"></button>
+    </span>
+
+    <span class="se-cv-sep" aria-hidden="true"></span>
+
+    <button type="button" class="se-cv-btn" data-act="undo" title="Undo (Ctrl or Cmd + Z)">Undo</button>
+    <button type="button" class="se-cv-btn" data-act="redo" title="Redo (Ctrl or Cmd + Shift + Z)">Redo</button>
+
+    <span class="se-cv-spacer"></span>
+
+    <label class="visually-hidden" for="se-cv-wheel">Scroll wheel behaviour</label>
+    <select class="se-cv-select" id="se-cv-wheel" data-wheel-mode
+            title="How the scroll wheel or trackpad behaves">
+      <option value="auto">Wheel: auto</option>
+      <option value="zoom">Wheel: zoom</option>
+      <option value="pan">Wheel: pan</option>
+    </select>
+
+    <span class="se-cv-status" data-status-line aria-live="polite"></span>
+    <span class="se-cv-save" data-save-indicator data-tone="idle" aria-live="polite">Saved</span>
+
+    <button type="button" class="se-cv-btn" data-act="help" aria-label="Keyboard shortcuts">?</button>
+  </div>
+
+  <div class="se-cv-stage" data-canvas-stage>
+    <canvas class="se-cv-surface" data-canvas-surface aria-label="Spatial canvas of your summaries"></canvas>
+
+    <input type="text" class="se-cv-floatinput d-none" data-float-input
+           aria-label="Edit label" autocomplete="off">
+
+    <canvas class="se-cv-minimap" data-canvas-minimap width="190" height="126"
+            aria-label="Minimap. Click to jump."></canvas>
+
+    <!-- Library -->
+    <div class="se-cv-panel se-cv-library d-none" data-library>
+      <div class="se-cv-panel-head">
+        <h3>Library</h3>
+        <div class="d-flex align-items-center gap-2">
+          <button type="button" class="se-cv-btn" data-act="place-all">Place all</button>
+          <button type="button" class="se-cv-panel-close" data-act="close-library"
+                  aria-label="Close library">&times;</button>
+        </div>
+      </div>
+      <div class="se-cv-panel-body">
+        <label class="visually-hidden" for="se-cv-libsearch">Filter documents</label>
+        <input type="text" class="se-cv-search" id="se-cv-libsearch" data-library-search
+               placeholder="Filter by title or summary" autocomplete="off">
+        <div data-library-list></div>
+      </div>
+    </div>
+
+    <!-- Help -->
+    <div class="se-cv-panel se-cv-help d-none" data-help>
+      <div class="se-cv-panel-head">
+        <h3>Getting around</h3>
+        <button type="button" class="se-cv-panel-close" data-act="close-help"
+                aria-label="Close shortcuts">&times;</button>
+      </div>
+      <div class="se-cv-panel-body">
+        <dl>
+          <dt>Drag empty space</dt><dd>Pan</dd>
+          <dt><span class="se-cv-key">Space</span> + drag</dt><dd>Pan from anywhere</dd>
+          <dt>Middle or right drag</dt><dd>Pan</dd>
+          <dt>Wheel or pinch</dt><dd>Zoom at the pointer</dd>
+          <dt><span class="se-cv-key">Shift</span> + drag</dt><dd>Lasso a set of cards</dd>
+          <dt><span class="se-cv-key">Shift</span> + click</dt><dd>Add or remove one card</dd>
+          <dt>Drag the round handle</dt><dd>Draw a link to another card</dd>
+          <dt>Double-click a link</dt><dd>Label it</dd>
+          <dt>Double-click a card</dt><dd>Pin or unpin it</dd>
+          <dt>Double-click a group title</dt><dd>Rename the group</dd>
+          <dt>Corner square</dt><dd>Resize a selected card</dd>
+          <dt><span class="se-cv-key">Arrows</span></dt><dd>Nudge the selection</dd>
+          <dt><span class="se-cv-key">Shift</span> + arrows</dt><dd>Nudge further</dd>
+          <dt><span class="se-cv-key">Delete</span></dt><dd>Remove the selection</dd>
+          <dt><span class="se-cv-key">Ctrl/Cmd A</span></dt><dd>Select all</dd>
+          <dt><span class="se-cv-key">Ctrl/Cmd G</span></dt><dd>Group the selection</dd>
+          <dt><span class="se-cv-key">Ctrl/Cmd Z</span></dt><dd>Undo</dd>
+          <dt><span class="se-cv-key">F</span></dt><dd>Fit everything in view</dd>
+          <dt><span class="se-cv-key">Esc</span></dt><dd>Deselect, or stop auto-arrange</dd>
+        </dl>
+        <p class="se-cv-lib-empty mt-2">
+          Auto-arrange pushes every card apart and pulls linked or similar ones
+          together, then settles. Pinned cards hold their place while the rest
+          move around them.
+        </p>
+      </div>
+    </div>
+
+    <!-- Empty state -->
+    <div class="se-cv-empty d-none" data-empty-state>
+      <div class="se-cv-empty-inner">
+        <div data-empty-somedocs class="d-none">
+          <h3>An empty canvas</h3>
+          <p>
+            Open the library and place a few summaries, then drag them into an
+            arrangement that means something to you. Position is the point:
+            what sits near what, and what you draw a line between.
+          </p>
+          <button type="button" class="se-cv-btn se-cv-btn-primary" data-act="library">
+            Open the library
+          </button>
+        </div>
+        <div data-empty-nodocs class="d-none">
+          <h3>Nothing to place yet</h3>
+          <p>
+            The canvas holds the things you have summarized. Summarize a
+            document or two and they will show up in the library here.
+          </p>
+          <a class="se-cv-btn se-cv-btn-primary text-decoration-none"
+             href="{{ url_for('routes.text') }}">Summarize something</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="{{ url_for('static', filename='js/canvas.js') }}"></script>
+{% endblock %}

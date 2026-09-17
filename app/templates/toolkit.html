@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block title %}Components - SummarEase{% endblock %}
+{% block content %}
+<div class="se-toolkit">
+
+  <div class="se-page-head">
+    <div>
+      <h2>Components</h2>
+      <p>
+        Self-contained pieces built for this application, each implementing a published algorithm directly
+        rather than calling a library or a model. They are kept here, out of the main flow, because they
+        are components rather than steps in the everyday task.
+      </p>
+    </div>
+  </div>
+
+  <div class="row g-3">
+    {% for component in components %}
+      <div class="col-md-6">
+        <div class="card h-100">
+          <div class="card-body d-flex flex-column">
+            <h5 class="card-title">{{ component.name }}</h5>
+            <p class="card-text small">{{ component.summary }}</p>
+            <p class="card-text text-muted small flex-grow-1">{{ component.built }}</p>
+            <a class="btn btn-sm btn-outline-primary align-self-start" href="{{ url_for(component.endpoint) }}">Open</a>
+          </div>
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+
+  <div class="card mt-4">
+    <div class="card-body">
+      <h6 class="card-title">Written from scratch</h6>
+      <p class="small mb-2">
+        The algorithms behind these live in <code>app/core/</code> and depend on nothing beyond the Python
+        standard library and NumPy. Each carries its own test suite, runnable directly:
+        <code>python app/core/&lt;module&gt;.py</code>.
+      </p>
+      <div class="table-responsive">
+        <table class="table table-sm mb-0">
+          <thead><tr><th>Module</th><th>Implements</th></tr></thead>
+          <tbody>
+            <tr><td><code>text_kit</code></td><td>Porter stemming, sentence boundary detection, syllable estimation, edit distance</td></tr>
+            <tr><td><code>provenance</code></td><td>Smith-Waterman local alignment with affine gaps, over IDF-weighted n-gram candidate retrieval</td></tr>
+            <tr><td><code>temporal</code></td><td>A grammar for date expressions, including relative and partial forms</td></tr>
+            <tr><td><code>quantities</code></td><td>Quantity extraction and unit conversion across an affine conversion graph</td></tr>
+            <tr><td><code>acoustics</code></td><td>STFT, spectral peak picking, combinatorial hashing, offset histogramming</td></tr>
+            <tr><td><code>crdt</code></td><td>Vector clocks, observed-remove sets, last-writer-wins registers</td></tr>
+            <tr><td><code>rules</code></td><td>Tokenizer, recursive-descent parser and evaluator for a small expression language</td></tr>
+            <tr><td><code>reading</code></td><td>Optimal-recognition-point calculation and distractor generation by cloze deletion</td></tr>
+            <tr><td><code>ledger</code></td><td>SHA-256 hash chain and Merkle tree with membership proofs</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <p class="text-muted small mt-3">
+    Stored originals currently occupy {{ (storage.total_bytes / 1048576) | round(1) }} MB across
+    {{ storage.total_files }} files.
+  </p>
+</div>
+{% endblock %}

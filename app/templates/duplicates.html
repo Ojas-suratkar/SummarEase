@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}Duplicates - SummarEase{% endblock %}
+{% block content %}
+<h2>Duplicates</h2>
+<p class="text-muted">Near-identical saves, found by comparing embeddings you already have -- no new API calls. Pick which one to keep in each group; the rest are removed.</p>
+
+{% if groups %}
+  {% for group in groups %}
+    <div class="card mb-3 shadow-sm">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+          <h6 class="mb-0">Possible duplicate group</h6>
+          <span class="badge text-bg-light text-muted">similarity {{ group.similarity }}</span>
+        </div>
+        <form method="post" action="{{ url_for('routes.duplicates_merge') }}">
+          {% for entry in group.entries %}
+            <div class="form-check mb-2 border-bottom pb-2">
+              <input class="form-check-input keep-radio" type="radio" name="keep_id" value="{{ entry.id }}" id="keep-{{ entry.id }}" {% if loop.first %}checked{% endif %} required>
+              <input type="hidden" name="duplicate_ids" value="{{ entry.id }}">
+              <label class="form-check-label" for="keep-{{ entry.id }}">
+                <span class="badge text-bg-secondary text-uppercase">{{ entry.source_type }}</span>
+                <span class="text-muted small">{{ entry.source_ref }} &middot; {{ entry.created_at[:19] }}</span>
+                <div class="small">{{ entry.summary[:200] }}{% if entry.summary|length > 200 %}...{% endif %}</div>
+              </label>
+            </div>
+          {% endfor %}
+          <button type="submit" class="btn btn-sm btn-outline-danger">Keep selected, remove the rest</button>
+        </form>
+      </div>
+    </div>
+  {% endfor %}
+{% else %}
+  <p class="text-muted">No likely duplicates found -- your knowledge base is clean.</p>
+{% endif %}
+{% endblock %}

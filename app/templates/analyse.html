@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block title %}Analyse - SummarEase{% endblock %}
+{% block content %}
+<div class="se-analyse">
+
+  <div class="se-page-head">
+    <div>
+      <h2>Analyse</h2>
+      <p>
+        Five ways of reading across everything you've saved. All of them run on this machine against your
+        own stored material — no request leaves the process, and none of them need an API key.
+      </p>
+    </div>
+    <span class="se-local-badge">No AI service</span>
+  </div>
+
+  {% if stats.total == 0 %}
+    <div class="se-empty">
+      <h5>Nothing to analyse yet</h5>
+      <p>These tools read across your saved sources. Add a few first.</p>
+      <a class="btn btn-primary" href="{{ url_for('main.add_source') }}">Add a source</a>
+    </div>
+  {% else %}
+    <p class="text-muted small mb-4">{{ stats.active }} sources available.</p>
+
+    <div class="row g-3">
+      {% for tab in tabs %}
+        <div class="col-md-6">
+          <a class="card h-100 se-analysis-card" href="{{ url_for(tab.endpoint) }}">
+            <div class="card-body">
+              <h5 class="card-title">{{ tab.label }}</h5>
+              <p class="card-text text-muted small mb-0">{{ tab.summary }}</p>
+            </div>
+          </a>
+        </div>
+      {% endfor %}
+    </div>
+
+    <div class="card mt-4">
+      <div class="card-body">
+        <h6 class="card-title">How these differ from asking a chat assistant</h6>
+        <p class="small mb-2">
+          A chat assistant can do a version of all of this if you paste your material into it each time.
+          The differences are narrow and worth stating precisely rather than overselling.
+        </p>
+        <p class="small mb-2">
+          These run against everything you have already saved, without re-uploading it, and they are
+          deterministic — the same sources give the same answer every time, and the answer can be
+          recomputed and checked. Tracing a summary returns character offsets into the source rather than
+          a description of where something came from, and conflicting figures are found by unit
+          arithmetic, so the comparison is arithmetic rather than judgement.
+        </p>
+        <p class="small text-muted mb-0">
+          For most one-off questions, a chat assistant is the faster tool and there is no reason to
+          pretend otherwise.
+        </p>
+      </div>
+    </div>
+  {% endif %}
+</div>
+
+<style>
+  .se-analyse .se-analysis-card { text-decoration: none; color: inherit; }
+  .se-analyse .se-analysis-card:hover { border-color: var(--se-primary); }
+  .se-analyse .se-analysis-card .card-title { color: var(--se-ink); }
+</style>
+{% endblock %}

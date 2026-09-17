@@ -1,43 +1,167 @@
 {% extends "base.html" %}
 {% block title %}SummarEase{% endblock %}
 {% block content %}
-<div class="text-center mb-5">
-  <h1 class="display-5 fw-bold">SummarEase</h1>
-  <p class="lead text-muted">Summarize text, PDFs, YouTube videos, and news articles in one place.</p>
-</div>
 
-<div class="row g-4">
-  <div class="col-md-3">
-    <a href="{{ url_for('routes.text') }}" class="card text-decoration-none h-100 shadow-sm">
-      <div class="card-body text-center">
-        <h5 class="card-title">Text</h5>
-        <p class="card-text text-muted small">Paste any text and get a concise summary.</p>
+{% if current_user.is_authenticated %}
+  <div class="se-home">
+    <div class="se-page-head">
+      <div>
+        <h2>Welcome back{% if current_user.display_name %}, {{ current_user.display_name }}{% endif %}</h2>
+        <p>Add something, or pick up where you left off.</p>
       </div>
-    </a>
-  </div>
-  <div class="col-md-3">
-    <a href="{{ url_for('routes.pdf') }}" class="card text-decoration-none h-100 shadow-sm">
-      <div class="card-body text-center">
-        <h5 class="card-title">PDF</h5>
-        <p class="card-text text-muted small">Upload a PDF and summarize its contents.</p>
+    </div>
+
+    <div class="row g-3">
+      <div class="col-md-3">
+        <a class="card h-100 se-home-card" href="{{ url_for('main.add_source') }}">
+          <div class="card-body">
+            <h5 class="card-title">Add</h5>
+            <p class="card-text text-muted small mb-0">Text, PDF, web page, video, audio or image.</p>
+          </div>
+        </a>
       </div>
-    </a>
-  </div>
-  <div class="col-md-3">
-    <a href="{{ url_for('routes.youtube') }}" class="card text-decoration-none h-100 shadow-sm">
-      <div class="card-body text-center">
-        <h5 class="card-title">YouTube</h5>
-        <p class="card-text text-muted small">Summarize a video from its transcript.</p>
+      <div class="col-md-3">
+        <a class="card h-100 se-home-card" href="{{ url_for('v2.library') }}">
+          <div class="card-body">
+            <h5 class="card-title">Library</h5>
+            <p class="card-text text-muted small mb-0">Everything you've saved, with the originals.</p>
+          </div>
+        </a>
       </div>
-    </a>
-  </div>
-  <div class="col-md-3">
-    <a href="{{ url_for('routes.article') }}" class="card text-decoration-none h-100 shadow-sm">
-      <div class="card-body text-center">
-        <h5 class="card-title">Article</h5>
-        <p class="card-text text-muted small">Summarize a news or blog article by URL.</p>
+      <div class="col-md-3">
+        <a class="card h-100 se-home-card" href="{{ url_for('main.analyse') }}">
+          <div class="card-body">
+            <h5 class="card-title">Analyse</h5>
+            <p class="card-text text-muted small mb-0">Read across your sources. Runs locally.</p>
+          </div>
+        </a>
       </div>
-    </a>
+      <div class="col-md-3">
+        <a class="card h-100 se-home-card" href="{{ url_for('main.toolkit') }}">
+          <div class="card-body">
+            <h5 class="card-title">Components</h5>
+            <p class="card-text text-muted small mb-0">The standalone pieces.</p>
+          </div>
+        </a>
+      </div>
+    </div>
   </div>
-</div>
+
+{% else %}
+
+  <div class="se-landing">
+    <section class="se-hero">
+      <h1>A workspace for material you keep coming back to.</h1>
+      <p class="se-lead">
+        Put a document, recording, video or web page in. Get a summary, keep the original, and be able to
+        find and re-read it months later. What you've saved can then be read across — traced back to its
+        source, laid out in order, or checked for figures that disagree.
+      </p>
+      <div class="d-flex gap-2 flex-wrap">
+        <a class="btn btn-primary" href="{{ url_for('auth.signup') }}">Create an account</a>
+        <a class="btn btn-outline-secondary" href="{{ url_for('auth.login') }}">Log in</a>
+      </div>
+    </section>
+
+    <section class="se-section">
+      <h2>What it is, plainly</h2>
+      <p class="se-body">
+        The summarising is done by a language model, and a chat assistant will summarise a document
+        perfectly well too. That part is not the reason this exists, and it would be dishonest to present
+        it as one.
+      </p>
+      <p class="se-body">
+        What it does that a chat window does not: it keeps your material. The original file is stored and
+        playable, not discarded once the text has been extracted. A recording made eight months ago can
+        still be listened to. Everything saved stays searchable, and the analysis tools run over the whole
+        collection at once rather than over whatever you last pasted in.
+      </p>
+      <p class="se-body">
+        Several of those tools need no AI service at all — they are algorithms running on your own stored
+        text, which makes them fast, free, repeatable, and functional when an API key is missing or an
+        upstream service is down.
+      </p>
+    </section>
+
+    <section class="se-section">
+      <h2>The parts worth pointing at</h2>
+      <div class="row g-4">
+        <div class="col-md-4">
+          <h5>Tracing a summary to its source</h5>
+          <p class="se-body-sm">
+            Every sentence of a summary is matched to the passage of the original it came from, by local
+            sequence alignment, and the result is a character position you can jump to. Sentences nothing
+            supports are flagged. A model asked to cite itself will often invent the citation; this
+            computes it.
+          </p>
+        </div>
+        <div class="col-md-4">
+          <h5>Figures that disagree</h5>
+          <p class="se-body-sm">
+            Quantities are extracted across everything you've saved and normalised through a unit
+            conversion graph, so two sources stating a different number for the same thing are surfaced.
+            Currencies are never converted, because exchange rates are prices rather than definitions.
+          </p>
+        </div>
+        <div class="col-md-4">
+          <h5>Chronology</h5>
+          <p class="se-body-sm">
+            Dates are parsed out of your sources by grammar, including relative ones, and resolved against
+            the document that wrote them rather than against today. The result is an ordered account of
+            what your material describes.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <section class="se-section">
+      <h2>Built rather than assembled</h2>
+      <p class="se-body">
+        The analysis in this application is implemented directly rather than delegated. Porter stemming,
+        Smith-Waterman alignment with affine gaps, a date grammar, an affine unit-conversion graph, the
+        constellation algorithm for acoustic fingerprinting, conflict-free replicated data types, a
+        recursive-descent parser for a small rule language, and a SHA-256 hash chain with Merkle
+        membership proofs — roughly ten thousand lines in <code>app/core/</code>, depending on nothing
+        beyond the standard library and NumPy, each module carrying a test suite you can run on its own.
+      </p>
+      <p class="se-body">
+        Calls to the language model go through a retry chain, a circuit breaker and a rate limiter, and
+        fall back to local extractive summarisation when every model is unavailable, so a busy API day
+        degrades the output rather than breaking the page.
+      </p>
+    </section>
+
+    <section class="se-section se-closing">
+      <p class="se-body">
+        If all you need is a one-off summary, use a chat assistant — it will be quicker and it is free.
+        This is for material you intend to keep.
+      </p>
+      <a class="btn btn-primary" href="{{ url_for('auth.signup') }}">Create an account</a>
+    </section>
+  </div>
+{% endif %}
+
+<style>
+  .se-home-card { text-decoration: none; color: inherit; }
+  .se-home-card:hover { border-color: var(--se-primary); }
+  .se-home-card .card-title { color: var(--se-ink); }
+
+  .se-landing { max-width: 62rem; margin: 0 auto; }
+  .se-hero { padding: 3rem 0 2.5rem; border-bottom: 1px solid var(--se-border); }
+  .se-hero h1 {
+    font-size: clamp(1.9rem, 4.2vw, 2.9rem);
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    text-wrap: balance;
+    max-width: 22ch;
+    margin-bottom: 1rem;
+  }
+  .se-lead { font-size: 1.08rem; color: var(--se-ink-muted); max-width: 62ch; margin-bottom: 1.6rem; }
+  .se-section { padding: 2.4rem 0; border-bottom: 1px solid var(--se-border); }
+  .se-section h2 { font-size: 1.3rem; font-weight: 700; margin-bottom: 1rem; }
+  .se-section h5 { font-size: 1rem; font-weight: 650; margin-bottom: 0.5rem; }
+  .se-body { max-width: 68ch; color: var(--se-ink-muted); margin-bottom: 1rem; }
+  .se-body-sm { font-size: 0.92rem; color: var(--se-ink-muted); margin-bottom: 0; }
+  .se-closing { border-bottom: none; }
+</style>
 {% endblock %}

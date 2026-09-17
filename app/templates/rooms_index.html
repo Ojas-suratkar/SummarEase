@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% block title %}Reading rooms - SummarEase{% endblock %}
+{% block content %}
+<div class="se-rooms-index">
+
+  <div class="se-page-head">
+    <div>
+      <h2>Reading rooms</h2>
+      <p>
+        Open a document with other people. Everyone sees the same page, each other's cursors, and each
+        other's highlights as they happen — so the discussion stays attached to what you were reading
+        instead of disappearing into a chat thread.
+      </p>
+    </div>
+  </div>
+
+  <div class="card mb-4">
+    <div class="card-body">
+      <h5 class="card-title">Start a room</h5>
+      <div class="row g-2">
+        <div class="col-md-5">
+          <input type="text" class="form-control" id="room-title" placeholder="What's it about?" value="Reading room">
+        </div>
+        <div class="col-md-5">
+          <select class="form-select" id="room-entry">
+            <option value="">No document — just a shared space</option>
+            {% for doc in documents %}
+              <option value="{{ doc.id }}">{{ doc.title }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-md-2 d-grid">
+          <button type="button" class="btn btn-primary" id="create-room">Create</button>
+        </div>
+      </div>
+      <div id="room-result" class="mt-3"></div>
+    </div>
+  </div>
+
+  <div class="card mb-4">
+    <div class="card-body">
+      <h5 class="card-title">Join a room</h5>
+      <div class="row g-2">
+        <div class="col-md-10">
+          <input type="text" class="form-control" id="join-code" placeholder="Paste the room link or code someone sent you">
+        </div>
+        <div class="col-md-2 d-grid">
+          <button type="button" class="btn btn-outline-primary" id="join-room">Join</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <p class="text-muted small">
+    Rooms live in memory on the server and disappear when it restarts or after an hour with nobody in them.
+    That's deliberate — they're for a conversation happening now, not a permanent record. Highlights you
+    want to keep should be saved as notes on the entry.
+  </p>
+</div>
+
+<script>
+(function () {
+  document.getElementById("create-room").addEventListener("click", function () {
+    var entryValue = document.getElementById("room-entry").value;
+    fetch("/api/rooms", {
+      method: "POST", credentials: "same-origin",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        title: document.getElementById("room-title").value || "Reading room",
+        entry_id: entryValue ? parseInt(entryValue, 10) : null
+      })
+    })
+      .then(function (r) { return r.ok ? r.json() : Promise.reject(r); })
+      .then(function (data) {
+        var url = "/room/" + data.room.id;
+        document.getElementById("room-result").innerHTML =
+          '<div class="alert alert-success mb-0">Room ready. Code <strong>' +
+          (data.room.join_code || "") + '</strong> — <a href="' + url + '">open it</a>, and send that link ' +
+          'to whoever should join.</div>';
+      })
+      .catch(function () { window.seToast("Couldn't create the room.", "error"); });
+  });
+
+  document.getElementById("join-room").addEventListener("click", function () {
+    var value = document.getElementById("join-code").value.trim();
+    if (!value) return;
+    // Accept either a full link or a bare id/code.
+    var match = value.match(/\/room\/([A-Za-z0-9_-]+)/);
+    window.location.href = "/room/" + (match ? match[1] : value);
+  });
+})();
+</script>
+{% endblock %}

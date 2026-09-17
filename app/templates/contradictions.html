@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+{% block title %}Sources that disagree - SummarEase{% endblock %}
+{% block content %}
+<div class="se-contradictions">
+
+  <div class="se-page-head">
+    <div>
+      <h2>Sources that disagree</h2>
+      <p>
+        Every number across everything you've read, with the units normalised so they're comparable. Where
+        two sources state a different figure for the same thing, it's flagged. Read a month apart, nobody
+        notices those; read together, they're obvious.
+      </p>
+    </div>
+    <span class="se-local-badge">Runs locally</span>
+  </div>
+
+  <div class="row g-3 mb-4">
+    <div class="col-6 col-md-3"><div class="card"><div class="card-body text-center py-3">
+      <div class="display-6">{{ report.total_quantities }}</div><div class="text-muted small">numbers found</div>
+    </div></div></div>
+    <div class="col-6 col-md-3"><div class="card"><div class="card-body text-center py-3">
+      <div class="display-6">{{ report.groups | length }}</div><div class="text-muted small">things measured</div>
+    </div></div></div>
+    <div class="col-6 col-md-3"><div class="card"><div class="card-body text-center py-3">
+      <div class="display-6 {{ 'text-danger' if report.conflicts else '' }}">{{ report.conflicts | length }}</div>
+      <div class="text-muted small">disagreements</div>
+    </div></div></div>
+    <div class="col-6 col-md-3"><div class="card"><div class="card-body text-center py-3">
+      <div class="display-6">{{ report.documents_scanned }}</div><div class="text-muted small">documents read</div>
+    </div></div></div>
+  </div>
+
+  {% if report.conflicts %}
+    <h5 class="mb-3">Where your sources don't agree</h5>
+    {% for conflict in report.conflicts %}
+      <div class="card mb-3 se-conflict {{ 'se-conflict-major' if conflict.severity == 'major' }}">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
+            <h6 class="card-title mb-1">{{ conflict.subject or "Unnamed measure" }}</h6>
+            <span class="badge {{ 'text-bg-danger' if conflict.severity == 'major' else 'text-bg-warning' }}">
+              {{ conflict.severity }}
+            </span>
+          </div>
+          <p class="text-muted small mb-2">
+            Ranges from <span class="se-claim-value">{{ conflict.min }}</span>
+            to <span class="se-claim-value">{{ conflict.max }}</span>
+            {% if conflict.unit %}{{ conflict.unit }}{% endif %}
+            {% if conflict.spread_ratio %}· a factor of {{ conflict.spread_ratio | round(1) }}{% endif %}
+          </p>
+          <div class="list-group list-group-flush">
+            {% for claim in conflict.claims %}
+              <div class="list-group-item px-0 py-2 border-0 border-top">
+                <span class="se-claim-value">{{ claim.text }}</span>
+                {% if claim.document_title %}
+                  — <a href="{{ url_for('v2.entry_workspace', entry_id=claim.document_id) }}">{{ claim.document_title }}</a>
+                {% endif %}
+                {% if claim.sentence %}<div class="small text-muted mt-1">{{ claim.sentence[:220] }}</div>{% endif %}
+              </div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+    {% endfor %}
+  {% elif report.total_quantities %}
+    <div class="alert alert-success">
+      <strong>No disagreements found.</strong>
+      {{ report.total_quantities }} numbers checked across {{ report.documents_scanned }} documents, and
+      nothing contradicts anything else.
+    </div>
+  {% endif %}
+
+  {% if report.groups %}
+    <h5 class="mt-4 mb-3">Everything measured</h5>
+    <div class="table-responsive">
+      <table class="table table-sm se-compare-table">
+        <thead><tr><th>Subject</th><th>Kind</th><th>Claims</th><th>Range</th></tr></thead>
+        <tbody>
+          {% for group in report.groups %}
+            <tr>
+              <td class="fw-semibold">{{ group.subject or "—" }}</td>
+              <td class="text-muted">{{ group.dimension or "count" }}</td>
+              <td>{{ group.claims | length }}</td>
+              <td class="se-claim-value">
+                {% if group.min == group.max %}{{ group.min }}{% else %}{{ group.min }} – {{ group.max }}{% endif %}
+                {{ group.unit or "" }}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <div class="se-empty">
+      <h5>No numbers found yet</h5>
+      <p>Summarize a few documents that contain figures and this will start comparing them.</p>
+      <a class="btn btn-primary" href="{{ url_for('routes.text') }}">Summarize something</a>
+    </div>
+  {% endif %}
+
+  <p class="text-muted small mt-3">
+    Currencies are never converted or compared against each other. Exchange rates move, so "$12M" and
+    "€12M" are two different claims, not a contradiction.
+  </p>
+</div>
+{% endblock %}

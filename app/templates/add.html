@@ -1,0 +1,219 @@
+{% extends "base.html" %}
+{% block title %}Add a source - SummarEase{% endblock %}
+{% block content %}
+<div class="se-add">
+
+  <div class="se-page-head">
+    <div>
+      <h2>Add a source</h2>
+      <p>
+        The original is kept, whatever you add. You can open it again from your library later, re-read it,
+        or run it again at a different length.
+      </p>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-body">
+
+      <div class="se-type-row" role="tablist" aria-label="Kind of source">
+        {% for type in source_types %}
+          <button type="button" class="se-type" role="tab"
+                  data-kind="{{ type.kind }}"
+                  aria-selected="{{ 'true' if type.kind == preselected else 'false' }}">
+            {{ type.label }}
+          </button>
+        {% endfor %}
+      </div>
+
+      <p class="text-muted small mt-3 mb-3" id="type-hint"></p>
+
+      <form id="add-form" enctype="multipart/form-data">
+        <input type="hidden" name="kind" id="kind-field" value="{{ preselected }}">
+
+        {% for type in source_types %}
+          <div class="se-input-panel" data-for="{{ type.kind }}" hidden>
+
+            {% if type.recorder %}
+              <div class="se-recorder mb-3" data-kind="{{ type.recorder }}" data-target-input="file-{{ type.kind }}">
+                <div class="se-recorder-inner">
+                  <h6 class="mb-2">
+                    {% if type.recorder == "audio" %}Record from your microphone
+                    {% elif type.recorder == "image" %}Take a photograph
+                    {% else %}Record with your camera{% endif %}
+                  </h6>
+                  <button type="button" class="btn btn-sm btn-primary se-rec-start">
+                    {% if type.recorder == "image" %}Turn on camera{% else %}Start recording{% endif %}
+                  </button>
+                  {% if type.recorder == "image" %}
+                    <button type="button" class="btn btn-sm btn-success se-rec-capture d-none">Capture</button>
+                  {% else %}
+                    <button type="button" class="btn btn-sm btn-danger se-rec-stop d-none">Stop</button>
+                  {% endif %}
+                  <div class="se-rec-status text-muted small mt-2"></div>
+                  {% if type.recorder == "audio" %}
+                    <audio class="se-rec-preview w-100 mt-2 d-none" controls></audio>
+                  {% elif type.recorder == "image" %}
+                    <video class="se-rec-live w-100 mt-2 d-none" style="max-width: 420px;" autoplay muted playsinline></video>
+                    <canvas class="d-none"></canvas>
+                    <img class="se-rec-preview w-100 mt-2 d-none" style="max-width: 420px;" alt="Captured photograph">
+                  {% else %}
+                    <video class="se-rec-live w-100 mt-2 d-none" style="max-width: 460px;" autoplay muted playsinline></video>
+                    <video class="se-rec-preview w-100 mt-2 d-none" style="max-width: 460px;" controls></video>
+                  {% endif %}
+                </div>
+              </div>
+            {% endif %}
+
+            {% if type.input == "textarea" %}
+              <label class="form-label" for="field-{{ type.kind }}">Text</label>
+              <textarea class="form-control" id="field-{{ type.kind }}" name="{{ type.field }}" rows="10"
+                        placeholder="Paste it here."></textarea>
+
+            {% elif type.input == "url" %}
+              <label class="form-label" for="field-{{ type.kind }}">Address</label>
+              <input class="form-control" type="url" id="field-{{ type.kind }}" name="{{ type.field }}"
+                     placeholder="{% if type.kind == 'youtube' %}https://www.youtube.com/watch?v=...{% else %}https://{% endif %}">
+
+            {% else %}
+              <label class="form-label" for="file-{{ type.kind }}">
+                {% if type.recorder %}…or choose a file{% else %}File{% endif %}
+              </label>
+              <input class="form-control" type="file" id="file-{{ type.kind }}" name="{{ type.field }}"
+                     accept="{{ type.accept }}">
+            {% endif %}
+
+            {% if type.kind == "image" %}
+              <div class="mt-3">
+                <label class="form-label" for="image-mode">What is it?</label>
+                <select class="form-select" id="image-mode" name="mode">
+                  {% for value, label in image_modes %}<option value="{{ value }}">{{ label }}</option>{% endfor %}
+                </select>
+              </div>
+            {% endif %}
+          </div>
+        {% endfor %}
+
+        <div class="row g-3 align-items-end mt-1" id="detail-row">
+          <div class="col-sm-4">
+            <label class="form-label" for="detail">Length</label>
+            <select class="form-select" id="detail" name="detail">
+              <option value="brief">Brief</option>
+              <option value="standard" selected>Standard</option>
+              <option value="detailed">Detailed</option>
+            </select>
+          </div>
+          <div class="col-sm-8">
+            <button type="submit" class="btn btn-primary" id="submit-button">Add it</button>
+            <span class="text-muted small ms-2">You can leave this page — it keeps running.</span>
+          </div>
+        </div>
+      </form>
+
+      <div id="add-status" class="mt-3"></div>
+    </div>
+  </div>
+
+  <p class="text-muted small mt-3">
+    Where an AI service is unavailable, text sources fall back to a local extractive summary so the
+    request still returns something. Audio, image and video need the service and will say so plainly
+    rather than failing silently.
+  </p>
+</div>
+
+<script>
+(function () {
+  const HINTS = {
+    {% for type in source_types %}"{{ type.kind }}": {{ type.hint | tojson }}{{ "," if not loop.last }}{% endfor %}
+  };
+
+  const kindField = document.getElementById("kind-field");
+  const hint = document.getElementById("type-hint");
+  const panels = Array.from(document.querySelectorAll(".se-input-panel"));
+  const buttons = Array.from(document.querySelectorAll(".se-type"));
+
+  function select(kind) {
+    kindField.value = kind;
+    hint.textContent = HINTS[kind] || "";
+    panels.forEach(function (panel) {
+      panel.hidden = panel.getAttribute("data-for") !== kind;
+    });
+    buttons.forEach(function (button) {
+      button.setAttribute("aria-selected", button.getAttribute("data-kind") === kind ? "true" : "false");
+    });
+    // The image pipeline takes a mode rather than a length.
+    document.getElementById("detail").closest(".col-sm-4").hidden = kind === "image";
+  }
+
+  buttons.forEach(function (button) {
+    button.addEventListener("click", function () { select(button.getAttribute("data-kind")); });
+  });
+
+  select(kindField.value);
+
+  document.getElementById("add-form").addEventListener("submit", function (event) {
+    event.preventDefault();
+    const button = document.getElementById("submit-button");
+    const status = document.getElementById("add-status");
+    const form = event.target;
+
+    // Only send the fields for the selected kind. Submitting the whole
+    // form would post seven empty inputs and let the server guess.
+    const kind = kindField.value;
+    const data = new FormData();
+    data.append("kind", kind);
+    data.append("detail", document.getElementById("detail").value);
+
+    const panel = panels.filter(function (p) { return p.getAttribute("data-for") === kind; })[0];
+    panel.querySelectorAll("input, textarea, select").forEach(function (field) {
+      if (!field.name) return;
+      if (field.type === "file") {
+        if (field.files && field.files[0]) data.append(field.name, field.files[0]);
+      } else {
+        data.append(field.name, field.value);
+      }
+    });
+
+    button.disabled = true;
+    button.textContent = "Starting…";
+    status.innerHTML = "";
+
+    fetch("/api/jobs/start", { method: "POST", credentials: "same-origin", body: data })
+      .then(function (response) { return response.json().then(function (body) { return { ok: response.ok, body: body }; }); })
+      .then(function (result) {
+        button.disabled = false;
+        button.textContent = "Add it";
+        if (!result.ok) {
+          status.innerHTML = '<div class="alert alert-warning mb-0">' + (result.body.error || "That didn't work.") + "</div>";
+          return;
+        }
+        status.innerHTML = '<div class="alert alert-success mb-0">Started. Progress is shown at the top of every page — ' +
+          'you can go elsewhere and it will carry on. It appears in your <a href="/library">library</a> when it finishes.</div>';
+        form.reset();
+      })
+      .catch(function () {
+        button.disabled = false;
+        button.textContent = "Add it";
+        status.innerHTML = '<div class="alert alert-danger mb-0">Could not reach the server.</div>';
+      });
+  });
+})();
+</script>
+
+<style>
+  .se-add .se-type-row { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+  .se-add .se-type {
+    border: 1px solid var(--se-border-strong); background: var(--se-surface);
+    color: var(--se-ink-muted); border-radius: 999px; padding: 0.35rem 0.95rem;
+    font-size: 0.875rem; font-weight: 500; transition: all 0.15s ease;
+  }
+  .se-add .se-type:hover { border-color: var(--se-primary); color: var(--se-primary); }
+  .se-add .se-type[aria-selected="true"] {
+    background: var(--se-primary); border-color: var(--se-primary); color: #fff;
+  }
+  .se-add .se-recorder-inner {
+    border: 1px dashed var(--se-border-strong); border-radius: var(--se-radius-sm);
+    padding: 0.9rem; background: var(--se-surface-alt);
+  }
+</style>
+{% endblock %}

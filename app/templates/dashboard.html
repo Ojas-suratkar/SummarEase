@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% block title %}Dashboard - SummarEase{% endblock %}
+{% block content %}
+<h2>Dashboard</h2>
+<p class="text-muted">Live health, cache hit rate, background jobs, and watchlist status -- all in one place. Refreshes every 5 seconds.</p>
+
+<div class="row g-3 mb-4" id="dashboard-root">
+  <div class="col-md-3">
+    <div class="card h-100">
+      <div class="card-body">
+        <h6 class="card-title text-muted small text-uppercase">Gemini health</h6>
+        <div id="dash-gemini"></div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card h-100">
+      <div class="card-body">
+        <h6 class="card-title text-muted small text-uppercase">Cache</h6>
+        <div id="dash-cache"></div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card h-100">
+      <div class="card-body">
+        <h6 class="card-title text-muted small text-uppercase">Background jobs</h6>
+        <div id="dash-jobs"></div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card h-100">
+      <div class="card-body">
+        <h6 class="card-title text-muted small text-uppercase">Watchlist</h6>
+        <div id="dash-watchlist"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-3">
+  <div class="col-md-4"><div class="card"><div class="card-body text-center"><div class="display-6" id="dash-entries">{{ entry_count }}</div><div class="text-muted small">Knowledge base entries</div></div></div></div>
+  <div class="col-md-4"><div class="card"><div class="card-body text-center"><div class="display-6" id="dash-annotations">{{ annotation_count }}</div><div class="text-muted small">Personal annotations</div></div></div></div>
+  <div class="col-md-4"><div class="card"><div class="card-body text-center"><div class="display-6" id="dash-cards">{{ card_count }}</div><div class="text-muted small">Flashcards</div></div></div></div>
+</div>
+
+<script>
+(function () {
+  function badge(ok, label) {
+    return `<span class="badge ${ok ? "text-bg-success" : "text-bg-danger"}">${label}</span>`;
+  }
+  function render(data) {
+    const g = data.gemini_health;
+    document.getElementById("dash-gemini").innerHTML = `
+      <div class="mb-1">${badge(g.configured, g.configured ? "API key set" : "Not configured")}</div>
+      <div class="mb-1">${badge(!g.circuit_breaker_open, g.circuit_breaker_open ? "Circuit open" : "Circuit closed")}</div>
+      <div class="small text-muted">${g.calls_last_minute}/${g.max_calls_per_minute} calls this minute</div>
+      <div class="small text-muted">${g.fallback_models.length}-model fallback chain</div>`;
+
+    const c = data.cache_stats;
+    document.getElementById("dash-cache").innerHTML = `
+      <div class="display-6 mb-0">${c.hit_rate !== null ? Math.round(c.hit_rate * 100) + "%" : "--"}</div>
+      <div class="small text-muted">hit rate (${c.hits} hits / ${c.misses} misses)</div>`;
+
+    const j = data.job_stats;
+    const statusLine = Object.entries(j.by_status || {}).map(([k, v]) => `${k}: ${v}`).join(", ") || "none active";
+    document.getElementById("dash-jobs").innerHTML = `
+      <div class="display-6 mb-0">${j.total}</div>
+      <div class="small text-muted">tracked (${statusLine})</div>`;
+
+    const w = data.watch_health;
+    document.getElementById("dash-watchlist").innerHTML = `
+      <div class="display-6 mb-0">${w.active}/${w.total}</div>
+      <div class="small text-muted">active watches</div>
+      ${w.failing ? `<div class="small text-danger">${w.failing} failing</div>` : `<div class="small text-success">none failing</div>`}`;
+
+    document.getElementById("dash-entries").textContent = data.entry_count;
+    document.getElementById("dash-annotations").textContent = data.annotation_count;
+    document.getElementById("dash-cards").textContent = data.card_count;
+  }
+
+  async function refresh() {
+    try {
+      const res = await fetch("/api/dashboard");
+      const data = await res.json();
+      render(data);
+    } catch (err) {
+      // Leave the last-known values showing.
+    }
+  }
+
+  refresh();
+  setInterval(refresh, 5000);
+})();
+</script>
+{% endblock %}

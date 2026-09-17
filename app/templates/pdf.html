@@ -2,13 +2,14 @@
 {% block title %}PDF Summarizer - SummarEase{% endblock %}
 {% block content %}
 <h2>Summarize a PDF</h2>
-<form method="post" action="{{ url_for('routes.pdf') }}" enctype="multipart/form-data">
+<form method="post" action="{{ url_for('routes.pdf') }}" enctype="multipart/form-data" data-job-kind="pdf">
   <div class="mb-3">
     <label class="form-label" for="pdf">Choose a PDF file</label>
     <input class="form-control" type="file" id="pdf" name="pdf" accept="application/pdf" required>
   </div>
+  {% include "_detail_selector.html" %}
   <button type="submit" class="btn btn-primary">Summarize</button>
 </form>
 
-{% include "_result.html" %}
+<div id="result-container">{% include "_result.html" %}</div>
 {% endblock %}

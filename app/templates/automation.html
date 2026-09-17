@@ -1,0 +1,281 @@
+{% extends "base.html" %}
+{% block title %}Rules - SummarEase{% endblock %}
+{% block content %}
+<div class="se-automation">
+
+  <div class="se-page-head">
+    <div>
+      <h2>Rules</h2>
+      <p>
+        Tell the app what to do without you. Each rule watches for something happening, checks a condition,
+        and acts. Conditions are read by our own small interpreter — never handed to a Python
+        <code>eval</code>, which would let a typo become a security hole.
+      </p>
+    </div>
+    <span class="se-local-badge">Runs locally</span>
+  </div>
+
+  <div class="row g-4">
+    <div class="col-lg-7">
+      <div class="card mb-4">
+        <div class="card-body">
+          <h5 class="card-title" id="form-heading">New rule</h5>
+          <input type="hidden" id="rule-id" value="">
+
+          <div class="mb-3">
+            <label class="form-label" for="rule-name">Name</label>
+            <input type="text" class="form-control" id="rule-name" placeholder="Flag long research reads">
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label" for="rule-trigger">When this happens</label>
+            <select class="form-select" id="rule-trigger">
+              {% for value, label in triggers %}<option value="{{ value }}">{{ label }}</option>{% endfor %}
+            </select>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label" for="rule-condition">And this is true</label>
+            <textarea class="form-control se-rule-condition" id="rule-condition" rows="3"
+                      placeholder='word_count > 2000 and source_type == "pdf"'></textarea>
+            <div class="form-text">Leave it empty to act every time.</div>
+            <div class="se-rule-plain mt-2 d-none" id="rule-plain"></div>
+            <div class="text-danger small mt-2 d-none" id="rule-error"></div>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label">Then do this</label>
+            <div id="actions-list"></div>
+            <div class="d-flex gap-2 mt-2">
+              <select class="form-select form-select-sm" id="action-type" style="width: auto;">
+                {% for value, label in action_types %}<option value="{{ value }}">{{ label }}</option>{% endfor %}
+              </select>
+              <input type="text" class="form-control form-control-sm" id="action-value" placeholder="value (tag name, URL...)" style="width: 220px;">
+              <button type="button" class="btn btn-sm btn-outline-secondary" id="add-action">Add</button>
+            </div>
+          </div>
+
+          <div class="d-flex gap-2">
+            <button type="button" class="btn btn-primary" id="save-rule">Save rule</button>
+            <button type="button" class="btn btn-outline-secondary d-none" id="cancel-edit">Cancel</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-body">
+          <h6 class="card-title">What you can check</h6>
+          <div class="table-responsive">
+            <table class="table table-sm mb-0">
+              <thead><tr><th>Field</th><th>Example</th></tr></thead>
+              <tbody id="language-fields"><tr><td colspan="2" class="text-muted small">Loading...</td></tr></tbody>
+            </table>
+          </div>
+          <p class="text-muted small mt-2 mb-0">
+            Combine them with <code>and</code>, <code>or</code>, <code>not</code> and brackets.
+            <code>mentions</code> matches word stems, so "funding" also matches "funded".
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-lg-5">
+      <div class="card mb-4">
+        <div class="card-body">
+          <h5 class="card-title">Your rules</h5>
+          <div id="rules-list">
+            {% if rules %}
+              {% for rule in rules %}
+                <div class="border rounded p-3 mb-2" data-rule-id="{{ rule.id }}">
+                  <div class="d-flex justify-content-between align-items-start gap-2">
+                    <div>
+                      <strong>{{ rule.name }}</strong>
+                      {% if not rule.enabled %}<span class="badge text-bg-light text-muted">off</span>{% endif %}
+                      <div class="small text-muted">{{ rule.description or "runs every time" }}</div>
+                    </div>
+                    <div class="d-flex gap-1">
+                      <button type="button" class="btn btn-sm btn-link p-0 rule-edit" data-id="{{ rule.id }}">Edit</button>
+                      <button type="button" class="btn btn-sm btn-link p-0 text-danger rule-delete" data-id="{{ rule.id }}">Delete</button>
+                    </div>
+                  </div>
+                  <div class="small text-muted mt-2">
+                    Ran {{ rule.run_count }} time{{ "s" if rule.run_count != 1 else "" }},
+                    matched {{ rule.match_count }}.
+                  </div>
+                </div>
+              {% endfor %}
+            {% else %}
+              <p class="text-muted small mb-0">Nothing yet. Try one of the examples below.</p>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+
+      <div class="card mb-4">
+        <div class="card-body">
+          <h6 class="card-title">Examples</h6>
+          {% for example in examples %}
+            <div class="border rounded p-2 mb-2">
+              <strong class="small">{{ example.name }}</strong>
+              <div class="se-rule-condition small text-muted">{{ example.condition }}</div>
+              <button type="button" class="btn btn-sm btn-link p-0 use-example"
+                      data-name="{{ example.name }}" data-trigger="{{ example.trigger }}"
+                      data-condition="{{ example.condition }}"
+                      data-actions='{{ example.actions | tojson }}'>Use this</button>
+            </div>
+          {% endfor %}
+        </div>
+      </div>
+
+      {% if runs %}
+        <div class="card">
+          <div class="card-body">
+            <h6 class="card-title">Recent activity</h6>
+            <div class="small">
+              {% for run in runs[:12] %}
+                <div class="border-bottom py-2">
+                  <strong>{{ run.rule_name }}</strong>
+                  <span class="badge {{ 'text-bg-success' if run.matched else 'text-bg-light text-muted' }}">
+                    {{ "matched" if run.matched else "no match" }}
+                  </span>
+                  <div class="text-muted">{{ run.created_at[:16] | replace("T", " ") }}</div>
+                  {% if run.error %}<div class="text-danger">{{ run.error }}</div>{% endif %}
+                </div>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  let actions = [];
+
+  function renderActions() {
+    const host = document.getElementById("actions-list");
+    if (!actions.length) {
+      host.innerHTML = '<p class="text-muted small mb-0">No actions yet.</p>';
+      return;
+    }
+    host.innerHTML = actions.map((a, i) =>
+      `<div class="d-flex justify-content-between align-items-center border rounded px-2 py-1 mb-1">
+         <span class="small">${a.type}${a.value ? ": " + a.value : ""}${a.url ? ": " + a.url : ""}</span>
+         <button type="button" class="btn btn-sm btn-link p-0 text-danger" data-remove="${i}">remove</button>
+       </div>`).join("");
+  }
+
+  document.getElementById("actions-list").addEventListener("click", (e) => {
+    const index = e.target.getAttribute("data-remove");
+    if (index === null) return;
+    actions.splice(parseInt(index, 10), 1);
+    renderActions();
+  });
+
+  document.getElementById("add-action").addEventListener("click", () => {
+    const type = document.getElementById("action-type").value;
+    const value = document.getElementById("action-value").value.trim();
+    const action = { type };
+    if (type === "webhook") action.url = value;
+    else if (value) action.value = value;
+    actions.push(action);
+    document.getElementById("action-value").value = "";
+    renderActions();
+  });
+
+  // Live validation -- the user sees their condition translated into
+  // plain English as they type, which is the fastest way to catch a
+  // rule that parses but means something else.
+  const conditionInput = document.getElementById("rule-condition");
+  let validateTimer;
+  conditionInput.addEventListener("input", () => {
+    clearTimeout(validateTimer);
+    validateTimer = setTimeout(() => {
+      const condition = conditionInput.value.trim();
+      const plain = document.getElementById("rule-plain");
+      const error = document.getElementById("rule-error");
+      if (!condition) {
+        plain.classList.add("d-none"); error.classList.add("d-none");
+        return;
+      }
+      fetch("/api/automation/validate", {
+        method: "POST", credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ condition, actions })
+      })
+        .then(r => r.json())
+        .then(result => {
+          if (result.valid) {
+            plain.textContent = "Means: " + result.description;
+            plain.classList.remove("d-none"); error.classList.add("d-none");
+          } else {
+            error.textContent = result.error;
+            error.classList.remove("d-none"); plain.classList.add("d-none");
+          }
+        })
+        .catch(() => {});
+    }, 400);
+  });
+
+  document.getElementById("save-rule").addEventListener("click", () => {
+    const idValue = document.getElementById("rule-id").value;
+    fetch("/api/automation/rule", {
+      method: "POST", credentials: "same-origin",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        id: idValue ? parseInt(idValue, 10) : null,
+        name: document.getElementById("rule-name").value,
+        trigger: document.getElementById("rule-trigger").value,
+        condition: conditionInput.value,
+        actions: actions,
+        enabled: true
+      })
+    })
+      .then(r => r.json().then(body => ({ ok: r.ok, body })))
+      .then(({ ok, body }) => {
+        if (!ok) throw new Error(body.error || "failed");
+        window.seToast("Rule saved.", "success");
+        setTimeout(() => location.reload(), 600);
+      })
+      .catch(err => window.seToast(err.message || "Couldn't save that rule.", "error"));
+  });
+
+  document.addEventListener("click", (e) => {
+    const example = e.target.closest(".use-example");
+    if (example) {
+      document.getElementById("rule-name").value = example.getAttribute("data-name");
+      document.getElementById("rule-trigger").value = example.getAttribute("data-trigger");
+      conditionInput.value = example.getAttribute("data-condition");
+      actions = JSON.parse(example.getAttribute("data-actions"));
+      renderActions();
+      conditionInput.dispatchEvent(new Event("input"));
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      return;
+    }
+
+    const del = e.target.closest(".rule-delete");
+    if (del) {
+      window.seConfirm("Delete this rule? It stops running immediately.", "Delete").then(ok => {
+        if (!ok) return;
+        fetch("/api/automation/rule/" + del.getAttribute("data-id"), {
+          method: "DELETE", credentials: "same-origin"
+        }).then(() => location.reload());
+      });
+    }
+  });
+
+  fetch("/api/automation/language", { credentials: "same-origin" })
+    .then(r => r.json())
+    .then(data => {
+      document.getElementById("language-fields").innerHTML = data.fields.map(f =>
+        `<tr><td><code>${f.name}</code><div class="small text-muted">${f.about}</div></td>
+             <td><code class="small">${f.example.replace(/</g, "&lt;")}</code></td></tr>`).join("");
+    })
+    .catch(() => {});
+
+  renderActions();
+})();
+</script>
+{% endblock %}

@@ -8,3 +8,6 @@ instance/
 app/static/audio/*.mp3
 !app/static/audio/.gitkeep
 .DS_Store
+_to_delete/
+*.tar.gz
+.venv_test/

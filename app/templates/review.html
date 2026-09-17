@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+{% block title %}Review - SummarEase{% endblock %}
+{% block content %}
+<h2>Review</h2>
+<p class="text-muted">Flashcards from what you've summarized, scheduled with the real SM-2 algorithm. Grade honestly -- "Again" brings it back tomorrow, "Easy" pushes it weeks out.</p>
+<p class="text-muted small">{{ due_count }} due now &middot; {{ total_count }} total cards.</p>
+
+<div id="review-root"></div>
+
+<script id="due-cards-data" type="application/json">{{ due | tojson }}</script>
+<script>
+(function () {
+  const root = document.getElementById("review-root");
+  const dataEl = document.getElementById("due-cards-data");
+  let queue = [];
+  try {
+    queue = JSON.parse(dataEl.textContent || "[]");
+  } catch (err) {
+    queue = [];
+  }
+  let reviewedCount = 0;
+
+  function escapeHtml(value) {
+    const div = document.createElement("div");
+    div.textContent = value == null ? "" : String(value);
+    return div.innerHTML;
+  }
+
+  function renderEmpty() {
+    root.innerHTML = queue.length === 0 && reviewedCount === 0
+      ? `<div class="card shadow-sm"><div class="card-body text-center py-5">
+          <p class="text-muted mb-2">Nothing due for review right now.</p>
+          <p class="text-muted small mb-0">Summarize something and hit "Generate flashcards" on the result, or come back later -- cards resurface on their own schedule.</p>
+        </div></div>`
+      : `<div class="card shadow-sm"><div class="card-body text-center py-5">
+          <p class="mb-0">✓ All caught up -- reviewed ${reviewedCount} card${reviewedCount === 1 ? "" : "s"}.</p>
+        </div></div>`;
+  }
+
+  function renderCard() {
+    if (!queue.length) {
+      renderEmpty();
+      return;
+    }
+    const card = queue[0];
+    root.innerHTML = `
+      <div class="card shadow-sm result-card">
+        <div class="card-body">
+          <div class="text-muted small mb-2">${queue.length} card${queue.length === 1 ? "" : "s"} left this session</div>
+          <h5 class="card-title">${escapeHtml(card.question)}</h5>
+          <div id="answer-area" class="mt-3"></div>
+        </div>
+      </div>`;
+    const answerArea = document.getElementById("answer-area");
+    const showBtn = document.createElement("button");
+    showBtn.type = "button";
+    showBtn.className = "btn btn-primary";
+    showBtn.textContent = "Show answer";
+    showBtn.addEventListener("click", () => revealAnswer(card, answerArea));
+    answerArea.appendChild(showBtn);
+  }
+
+  function revealAnswer(card, answerArea) {
+    answerArea.innerHTML = `<p class="card-text">${escapeHtml(card.answer)}</p>
+      <div class="d-flex flex-wrap gap-2 mt-3" id="grade-buttons"></div>`;
+    const gradeButtons = document.getElementById("grade-buttons");
+    const grades = [
+      { label: "Again", quality: 1, cls: "btn-outline-danger" },
+      { label: "Hard", quality: 3, cls: "btn-outline-warning" },
+      { label: "Good", quality: 4, cls: "btn-outline-success" },
+      { label: "Easy", quality: 5, cls: "btn-primary" },
+    ];
+    grades.forEach((g) => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = `btn ${g.cls}`;
+      btn.textContent = g.label;
+      btn.addEventListener("click", () => grade(card, g.quality));
+      gradeButtons.appendChild(btn);
+    });
+  }
+
+  async function grade(card, quality) {
+    try {
+      await fetch("/api/flashcards/grade", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ card_id: card.id, quality }),
+      });
+    } catch (err) {
+      // Move on regardless -- the card just won't be rescheduled if this failed.
+    }
+    reviewedCount += 1;
+    queue.shift();
+    renderCard();
+  }
+
+  renderCard();
+})();
+</script>
+{% endblock %}

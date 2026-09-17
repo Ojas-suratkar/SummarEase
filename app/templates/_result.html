@@ -8,9 +8,15 @@
       <h5 class="card-title d-flex justify-content-between align-items-center">
         Summary
         <button type="button" class="btn btn-sm btn-outline-secondary speak-btn" data-text="{{ summary }}">
-          🔊 Listen
+          Listen
         </button>
       </h5>
+      {% if degraded %}
+        <div class="alert alert-warning small py-2 mb-2">⚠ Gemini was unavailable, so this is a local extractive summary instead of the usual AI-written one -- accurate but less polished. Try again shortly for the full version.</div>
+      {% endif %}
+      {% if used_textrank %}
+        <p class="text-muted small mb-2">Long source -- filtered to its key sentences before summarizing.</p>
+      {% endif %}
       <p class="card-text">{{ summary }}</p>
       <audio class="w-100 mt-2 d-none" controls></audio>
 
@@ -28,4 +34,70 @@
       {% endif %}
     </div>
   </div>
+
+  {% if doc_id %}
+    <div class="card mt-3 shadow-sm">
+      <div class="card-body">
+        <h6 class="card-title">Ask this document</h6>
+        <p class="text-muted small">Answers come only from this source -- Gemini says so if it can't find the answer, instead of guessing.</p>
+        <form class="ask-form d-flex gap-2" data-doc-id="{{ doc_id }}">
+          <input type="text" class="form-control form-control-sm ask-input" placeholder="Ask a question about this source..." required>
+          <button type="submit" class="btn btn-sm btn-primary text-nowrap">Ask</button>
+        </form>
+        <div class="ask-output mt-2 small"></div>
+      </div>
+    </div>
+
+    <div class="card mt-3 shadow-sm">
+      <div class="card-body">
+        <h6 class="card-title d-flex justify-content-between align-items-center">
+          Credibility &amp; framing lens
+          <button type="button" class="btn btn-sm btn-outline-secondary lens-btn" data-doc-id="{{ doc_id }}">
+            Analyze
+          </button>
+        </h6>
+        <p class="text-muted small mb-2">Scores the source's language -- loaded wording, emotional tone, reading level. Flagged claims link out for you to verify.</p>
+        <div class="lens-output small"></div>
+      </div>
+    </div>
+
+    <div class="card mt-3 shadow-sm">
+      <div class="card-body">
+        <h6 class="card-title d-flex justify-content-between align-items-center">
+          Faithfulness check
+          <button type="button" class="btn btn-sm btn-outline-secondary faithfulness-btn" data-doc-id="{{ doc_id }}" data-summary="{{ summary }}">
+            Check
+          </button>
+        </h6>
+        <p class="text-muted small mb-2">Gemini re-checks its own summary against the source and flags anything unsupported.</p>
+        <div class="faithfulness-output small"></div>
+      </div>
+    </div>
+
+    <div class="card mt-3 shadow-sm">
+      <div class="card-body">
+        <h6 class="card-title d-flex justify-content-between align-items-center">
+          Spaced-repetition flashcards
+          <button type="button" class="btn btn-sm btn-outline-secondary flashcards-btn" data-doc-id="{{ doc_id }}" data-source-ref="{{ source_ref if source_ref is defined else '' }}">
+            Generate flashcards
+          </button>
+        </h6>
+        <p class="text-muted small mb-2">Turns this source into a few flashcards, scheduled with the same SM-2 algorithm behind Anki. Review them any time on the <a href="{{ url_for('routes.review_page') }}">Review</a> page.</p>
+        <div class="flashcards-output small"></div>
+      </div>
+    </div>
+
+    <div class="card mt-3 shadow-sm">
+      <div class="card-body">
+        <h6 class="card-title d-flex justify-content-between align-items-center">
+          Steelmanned perspectives
+          <button type="button" class="btn btn-sm btn-outline-secondary perspectives-btn" data-doc-id="{{ doc_id }}">
+            View perspectives
+          </button>
+        </h6>
+        <p class="text-muted small mb-2">For contested topics, generates the strongest good-faith version of each major viewpoint -- plus the assumption it rests on and what would change its mind.</p>
+        <div class="perspectives-output small"></div>
+      </div>
+    </div>
+  {% endif %}
 {% endif %}

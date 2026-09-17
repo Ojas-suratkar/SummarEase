@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% block title %}Profile - SummarEase{% endblock %}
+{% block content %}
+<h2 class="mb-3">Profile &amp; account</h2>
+
+{% if error %}<div class="alert alert-danger">{{ error }}</div>{% endif %}
+{% if success %}<div class="alert alert-success">{{ success }}</div>{% endif %}
+
+<div class="row g-3 mb-4">
+  <div class="col-6 col-md-2"><div class="card"><div class="card-body text-center"><div class="display-6">{{ stats.entry_count }}</div><div class="text-muted small">Summarized</div></div></div></div>
+  <div class="col-6 col-md-2"><div class="card"><div class="card-body text-center"><div class="display-6">{{ stats.watch_count }}</div><div class="text-muted small">Watches</div></div></div></div>
+  <div class="col-6 col-md-2"><div class="card"><div class="card-body text-center"><div class="display-6">{{ stats.flashcard_count }}</div><div class="text-muted small">Flashcards</div></div></div></div>
+  <div class="col-6 col-md-2"><div class="card"><div class="card-body text-center"><div class="display-6">{{ stats.annotation_count }}</div><div class="text-muted small">Annotations</div></div></div></div>
+  <div class="col-6 col-md-2"><div class="card"><div class="card-body text-center"><div class="display-6">{{ stats.draft_count }}</div><div class="text-muted small">Drafts</div></div></div></div>
+</div>
+
+<div class="row g-4">
+  <div class="col-md-6">
+    <div class="card mb-4">
+      <div class="card-body">
+        <h5 class="card-title">Your details</h5>
+        <form method="post" action="{{ url_for('auth.profile') }}">
+          <input type="hidden" name="action" value="update_details">
+          <div class="mb-3">
+            <label class="form-label" for="display_name">Name</label>
+            <input class="form-control" type="text" id="display_name" name="display_name" value="{{ current_user.display_name }}">
+          </div>
+          <div class="mb-3">
+            <label class="form-label" for="email">Email</label>
+            <input class="form-control" type="email" id="email" name="email" value="{{ current_user.email }}" required>
+          </div>
+          <button type="submit" class="btn btn-outline-primary">Save details</button>
+        </form>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-body">
+        <h5 class="card-title">Change password</h5>
+        <form method="post" action="{{ url_for('auth.profile') }}">
+          <input type="hidden" name="action" value="change_password">
+          <div class="mb-3">
+            <label class="form-label" for="current_password">Current password</label>
+            <input class="form-control" type="password" id="current_password" name="current_password" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label" for="new_password">New password</label>
+            <input class="form-control" type="password" id="new_password" name="new_password" minlength="8" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label" for="confirm_password">Confirm new password</label>
+            <input class="form-control" type="password" id="confirm_password" name="confirm_password" minlength="8" required>
+          </div>
+          <button type="submit" class="btn btn-outline-primary">Change password</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-6">
+    <div class="card mb-4">
+      <div class="card-body">
+        <h5 class="card-title">Save from anywhere</h5>
+        <p class="text-muted small">Drag this button to your bookmarks bar. On any article, click it once to summarize and save that page to your knowledge base here -- no copy-paste, no switching tabs.</p>
+        <a class="btn btn-primary" href="javascript:(function(){window.open('{{ bookmarklet_url }}?token={{ current_user.api_token }}&url='+encodeURIComponent(location.href),'_blank','width=480,height=640');})();">Save to SummarEase</a>
+        <p class="text-muted small mt-2 mb-2">If your browser strips the link when dragging, copy this address into a new bookmark manually:</p>
+        <code class="small d-block text-break">javascript:(function(){window.open('{{ bookmarklet_url }}?token={{ current_user.api_token }}&url='+encodeURIComponent(location.href),'_blank');})();</code>
+        <form method="post" action="{{ url_for('auth.profile') }}" class="mt-3">
+          <input type="hidden" name="action" value="regenerate_token">
+          <button type="submit" class="btn btn-sm btn-outline-secondary">Regenerate save link</button>
+        </form>
+        <p class="text-muted small mt-1 mb-0">Regenerating invalidates the old bookmarklet -- do this if you ever think the link leaked.</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-body">
+        <h5 class="card-title">Your data</h5>
+        <p class="text-muted small">Export everything this account owns as one JSON file, or restore from a previous export.</p>
+        <a class="btn btn-outline-primary mb-3" href="{{ url_for('routes.account_export') }}">Download full backup (.json)</a>
+        <form method="post" action="{{ url_for('routes.account_import') }}" enctype="multipart/form-data" class="d-flex gap-2">
+          <input class="form-control" type="file" name="backup_file" accept="application/json" required>
+          <button type="submit" class="btn btn-outline-secondary text-nowrap">Import backup</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

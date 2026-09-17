@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+{% block title %}Compare - SummarEase{% endblock %}
+{% block content %}
+<h2>Compare sources</h2>
+<p class="text-muted">Add 2-5 sources and get a real table, not a paragraph to re-read three times -- with agreements and disagreements called out separately. Click a column header to sort.</p>
+
+<form method="post" action="{{ url_for('routes.compare') }}" enctype="multipart/form-data">
+  {% for i in range(1, max_sources + 1) %}
+    <div class="border rounded p-3 mb-3">
+      <div class="row g-2 align-items-center mb-2">
+        <div class="col-auto fw-semibold">Source {{ i }}</div>
+        <div class="col-sm-4">
+          <select class="form-select form-select-sm kind-select" name="kind_{{ i }}" data-row="{{ i }}">
+            <option value="skip">Skip</option>
+            <option value="text">Paste text</option>
+            <option value="url">Article URL</option>
+            <option value="pdf">PDF upload</option>
+          </select>
+        </div>
+        <div class="col">
+          <input type="text" class="form-control form-control-sm" name="label_{{ i }}" placeholder="Label (e.g. Plan A, Product 2)">
+        </div>
+      </div>
+      <textarea class="form-control form-control-sm d-none source-input" data-row="{{ i }}" data-kind="text"
+                name="text_value_{{ i }}" rows="3" placeholder="Paste text..."></textarea>
+      <input type="url" class="form-control form-control-sm d-none source-input" data-row="{{ i }}" data-kind="url"
+             name="url_value_{{ i }}" placeholder="https://example.com/article">
+      <input type="file" class="form-control form-control-sm d-none source-input" data-row="{{ i }}" data-kind="pdf"
+             name="file_{{ i }}" accept="application/pdf">
+    </div>
+  {% endfor %}
+
+  <button type="submit" class="btn btn-primary">Compare</button>
+</form>
+
+{% if warnings %}
+  <div class="alert alert-warning mt-4">
+    <div class="fw-semibold mb-1">Heads up:</div>
+    <ul class="mb-0">{% for w in warnings %}<li>{{ w }}</li>{% endfor %}</ul>
+  </div>
+{% endif %}
+
+{% if error %}
+  <div class="alert alert-danger mt-4">{{ error }}</div>
+{% endif %}
+
+{% if result %}
+  <div class="card mt-4 shadow-sm">
+    <div class="card-body">
+      <h5 class="card-title">Comparison</h5>
+      <div class="table-responsive">
+        <table class="table table-sm table-hover se-compare-table" id="compare-table">
+          <thead>
+            <tr>
+              <th data-col="0" class="se-sortable">Dimension</th>
+              {% for label in result.labels %}
+                <th data-col="{{ loop.index }}" class="se-sortable">{{ label }}</th>
+              {% endfor %}
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in result.rows %}
+              <tr>
+                <td class="fw-semibold">{{ row.dimension }}</td>
+                {% for value in row['values'] %}
+                  <td>{{ value }}</td>
+                {% endfor %}
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      <div class="row g-3 mt-2">
+        <div class="col-md-6">
+          <h6 class="text-success">Where they agree</h6>
+          {% if result.agreements %}
+            <ul class="small mb-0">{% for a in result.agreements %}<li>{{ a }}</li>{% endfor %}</ul>
+          {% else %}
+            <p class="text-muted small mb-0">No clear agreements surfaced.</p>
+          {% endif %}
+        </div>
+        <div class="col-md-6">
+          <h6 class="text-warning">Where they disagree</h6>
+          {% if result.disagreements %}
+            <ul class="small mb-0">{% for d in result.disagreements %}<li>{{ d }}</li>{% endfor %}</ul>
+          {% else %}
+            <p class="text-muted small mb-0">No clear disagreements surfaced.</p>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+{% endif %}
+{% endblock %}

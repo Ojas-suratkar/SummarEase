@@ -1,0 +1,380 @@
+{% extends "base.html" %}
+{% block title %}Vault - SummarEase{% endblock %}
+{% block content %}
+
+<style>
+  /* Scoped to .se-vault so nothing here can reach another page. */
+  .se-vault .se-vault-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+    margin-bottom: 0.75rem;
+  }
+  .se-vault .se-vault-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.78rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    padding: 0.28rem 0.7rem;
+    border-radius: 999px;
+    border: 1px solid var(--se-border);
+  }
+  .se-vault .se-vault-badge-shut {
+    background: rgba(26, 29, 41, 0.06);
+    color: var(--se-ink-muted);
+  }
+  .se-vault .se-vault-badge-open {
+    background: rgba(22, 163, 74, 0.1);
+    color: var(--se-success);
+    border-color: rgba(22, 163, 74, 0.28);
+  }
+  .se-vault .se-vault-lockicon {
+    font-size: 1.4rem;
+    line-height: 1;
+  }
+  .se-vault .se-vault-panel {
+    background: var(--se-surface);
+    border: 1px solid var(--se-border);
+    border-radius: var(--se-radius);
+    box-shadow: var(--se-shadow);
+    padding: 1.25rem;
+  }
+  .se-vault .se-vault-status {
+    border-radius: var(--se-radius-sm);
+    padding: 0.6rem 0.85rem;
+    font-size: 0.88rem;
+    margin-bottom: 1rem;
+    border: 1px solid var(--se-border);
+  }
+  .se-vault .se-vault-status-info { background: var(--se-surface-alt, #f9fafc); color: var(--se-ink-muted); }
+  .se-vault .se-vault-status-ok { background: rgba(22, 163, 74, 0.08); color: var(--se-success); border-color: rgba(22, 163, 74, 0.25); }
+  .se-vault .se-vault-status-error { background: rgba(220, 38, 38, 0.07); color: var(--se-danger); border-color: rgba(220, 38, 38, 0.25); }
+
+  .se-vault .se-vault-strength-track {
+    height: 6px;
+    border-radius: 999px;
+    background: rgba(26, 29, 41, 0.08);
+    overflow: hidden;
+    margin-top: 0.5rem;
+  }
+  .se-vault .se-vault-strength-fill {
+    height: 100%;
+    width: 0;
+    border-radius: 999px;
+    transition: width 0.18s ease, background-color 0.18s ease;
+    background: transparent;
+  }
+  .se-vault .se-vault-strength-weak { background: var(--se-danger); }
+  .se-vault .se-vault-strength-fair { background: var(--se-warning, #d97706); }
+  .se-vault .se-vault-strength-strong { background: var(--se-success); }
+  .se-vault .se-vault-strength-excellent { background: var(--se-primary); }
+  .se-vault .se-vault-strength-none { background: transparent; }
+
+  .se-vault .se-vault-warn {
+    border: 1px solid rgba(217, 119, 6, 0.35);
+    background: rgba(217, 119, 6, 0.07);
+    border-radius: var(--se-radius-sm);
+    padding: 0.85rem 1rem;
+    color: var(--se-ink);
+    font-size: 0.9rem;
+  }
+  .se-vault .se-vault-warn strong { font-weight: 600; }
+
+  .se-vault .se-vault-item {
+    display: block;
+    width: 100%;
+    text-align: left;
+    background: var(--se-surface);
+    border: 1px solid var(--se-border);
+    border-radius: var(--se-radius-sm);
+    padding: 0.6rem 0.75rem;
+    margin-bottom: 0.4rem;
+    transition: border-color 0.15s ease, background 0.15s ease;
+  }
+  .se-vault .se-vault-item:hover { border-color: var(--se-border-strong, #d7d9e8); }
+  .se-vault .se-vault-item-active {
+    border-color: var(--se-primary);
+    background: var(--se-primary-soft, rgba(79, 70, 229, 0.08));
+  }
+  .se-vault .se-vault-item-title {
+    display: block;
+    font-weight: 600;
+    font-size: 0.92rem;
+    color: var(--se-ink);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .se-vault .se-vault-item-pending { color: var(--se-ink-faint, #8a8fa3); font-weight: 400; font-style: italic; }
+  .se-vault .se-vault-item-failed { color: var(--se-danger); font-weight: 500; }
+  .se-vault .se-vault-item-meta {
+    display: block;
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 0.7rem;
+    color: var(--se-ink-faint, #8a8fa3);
+    margin-top: 0.15rem;
+  }
+
+  .se-vault .se-vault-mono {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 0.72rem;
+    line-height: 1.5;
+    word-break: break-all;
+    white-space: pre-wrap;
+    margin: 0;
+    color: var(--se-ink);
+  }
+  .se-vault .se-vault-pane {
+    border: 1px solid var(--se-border);
+    border-radius: var(--se-radius-sm);
+    padding: 0.75rem;
+    height: 190px;
+    overflow: auto;
+    background: var(--se-surface-alt, #f9fafc);
+  }
+  .se-vault .se-vault-pane-plain { border-color: rgba(22, 163, 74, 0.3); }
+  .se-vault .se-vault-pane-cipher { border-color: rgba(220, 38, 38, 0.25); }
+  .se-vault .se-vault-pane-label {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.5rem;
+    font-size: 0.78rem;
+    font-weight: 600;
+    margin-bottom: 0.35rem;
+  }
+  .se-vault .se-vault-pane-label span:last-child {
+    font-weight: 400;
+    color: var(--se-ink-muted);
+  }
+  .se-vault .se-vault-meta-table {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 0.72rem;
+    width: 100%;
+    margin-top: 0.85rem;
+  }
+  .se-vault .se-vault-meta-table th {
+    font-weight: 500;
+    color: var(--se-ink-muted);
+    white-space: nowrap;
+    padding-right: 0.9rem;
+    vertical-align: top;
+    width: 1%;
+  }
+  .se-vault .se-vault-meta-table td {
+    word-break: break-all;
+    color: var(--se-ink);
+  }
+  .se-vault .se-vault-countdown {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 0.78rem;
+    color: var(--se-ink-muted);
+  }
+  .se-vault textarea#vault-body {
+    min-height: 260px;
+    font-size: 0.95rem;
+    line-height: 1.6;
+  }
+</style>
+
+<div class="se-vault" id="vault-root">
+
+  <div class="se-vault-head">
+    <div class="d-flex align-items-center gap-2">
+      <span class="se-vault-lockicon" id="vault-lock-icon" aria-hidden="true">&#128274;</span>
+      <div>
+        <h2 class="mb-0">Vault</h2>
+        <div class="text-muted small">Notes encrypted in your browser. The server stores ciphertext only.</div>
+      </div>
+    </div>
+    <div class="d-flex align-items-center gap-2">
+      <span class="se-vault-badge se-vault-badge-shut" id="vault-lock-badge" role="status" aria-live="polite">Locked</span>
+      <button type="button" class="btn btn-sm btn-outline-secondary d-none" id="vault-lock-now">Lock now</button>
+    </div>
+  </div>
+
+  <div class="se-vault-status d-none" id="vault-status" role="status" aria-live="polite"></div>
+
+  <!-- ============ LOCKED ============ -->
+  <div id="vault-locked-panel">
+    <div class="row g-3">
+      <div class="col-lg-6">
+        <div class="se-vault-panel h-100">
+          <h6 class="se-section-label text-uppercase">Unlock</h6>
+          <form id="vault-pass-form" autocomplete="off" novalidate>
+            <div class="mb-2">
+              <label class="form-label small fw-semibold" for="vault-pass">Passphrase</label>
+              <div class="input-group">
+                <input type="password" class="form-control" id="vault-pass" name="vault-pass"
+                       autocomplete="new-password" spellcheck="false"
+                       aria-describedby="vault-strength-label vault-strength-detail vault-unlock-error">
+                <button class="btn btn-outline-secondary" type="button" id="vault-pass-toggle"
+                        aria-pressed="false" aria-label="Show or hide the passphrase">Show</button>
+              </div>
+              <div class="se-vault-strength-track" id="vault-strength-meter" role="progressbar"
+                   aria-label="Passphrase strength" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+                <div class="se-vault-strength-fill se-vault-strength-none" id="vault-strength-bar"></div>
+              </div>
+              <div class="small fw-semibold mt-1" id="vault-strength-label" aria-live="polite"></div>
+              <div class="small text-muted" id="vault-strength-detail"></div>
+            </div>
+
+            <div class="alert alert-danger py-2 px-3 small d-none" id="vault-unlock-error" role="alert"></div>
+
+            <button type="submit" class="btn btn-primary btn-sm">Unlock vault</button>
+            <p class="text-muted small mb-0 mt-2">
+              Unlocking happens on this device. There is nothing to check the passphrase against
+              until an item decrypts, so the first wrong passphrase shows up as an item that will
+              not open.
+            </p>
+          </form>
+        </div>
+      </div>
+
+      <div class="col-lg-6">
+        <div class="se-vault-warn h-100">
+          <p class="mb-2"><strong>If you forget this passphrase, the notes are gone.</strong></p>
+          <p class="mb-2">
+            There is no reset link and no recovery process. We do not hold the passphrase, a copy
+            of it, or anything derived from it. Support cannot help. That is the same property
+            that stops us handing your notes to anyone else.
+          </p>
+          <p class="mb-0">
+            Write the passphrase down and keep it somewhere safe, or store it in a password
+            manager. Use a passphrase you do not use anywhere else.
+          </p>
+        </div>
+
+        <div class="se-vault-panel mt-3">
+          <h6 class="se-section-label text-uppercase">How it works</h6>
+          <ul class="small text-muted mb-0 ps-3">
+            <li>Your passphrase is stretched into a key with PBKDF2-SHA256, <span id="vault-iter-note">600,000</span> iterations, using a random 16-byte salt for each item.</li>
+            <li>Each note is encrypted with AES-256-GCM and a fresh random 12-byte IV.</li>
+            <li>The key is marked non-extractable, so no script on this page can read its bytes.</li>
+            <li>The passphrase stays in memory on this device. It is not stored and not sent.</li>
+            <li>The vault locks itself after 10 minutes of inactivity and whenever you leave the tab.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ UNLOCKED ============ -->
+  <div id="vault-unlocked-panel" class="d-none">
+    <div class="row g-3">
+
+      <div class="col-lg-4">
+        <div class="se-vault-panel h-100">
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <h6 class="se-section-label text-uppercase mb-0">Your items</h6>
+            <span class="badge text-bg-light text-muted" id="vault-item-count">0 items</span>
+          </div>
+          <button type="button" class="btn btn-primary btn-sm w-100 mb-3" id="vault-new">New secure note</button>
+
+          <div id="vault-items"></div>
+          <p class="text-muted small d-none" id="vault-items-empty">
+            No items yet. A new note is encrypted before it is sent.
+          </p>
+
+          <hr class="my-3">
+          <p class="text-muted small mb-1">
+            The server's copy of this list has only ids, sizes and timestamps. Titles are inside
+            the ciphertext, so they are decrypted here, one item at a time, after you unlock.
+          </p>
+          <p class="text-muted small mb-0">
+            Auto-lock in <span class="se-vault-countdown" id="vault-countdown" aria-live="off">10:00</span>.
+          </p>
+        </div>
+      </div>
+
+      <div class="col-lg-8">
+        <div class="se-vault-panel">
+          <p class="text-muted small mb-0 d-none" id="vault-editor-empty">
+            Select an item on the left, or start a new secure note.
+          </p>
+
+          <div id="vault-editor" class="d-none">
+            <div class="mb-3">
+              <label class="form-label small fw-semibold" for="vault-title">Title</label>
+              <input type="text" class="form-control" id="vault-title" spellcheck="false"
+                     placeholder="Encrypted with the note" aria-describedby="vault-save-state">
+            </div>
+            <div class="mb-3">
+              <label class="form-label small fw-semibold" for="vault-body">Note</label>
+              <textarea class="form-control" id="vault-body" rows="10"
+                        aria-describedby="vault-save-state"></textarea>
+            </div>
+
+            <div class="d-flex flex-wrap align-items-center gap-2">
+              <button type="button" class="btn btn-primary btn-sm" id="vault-save">Save</button>
+              <button type="button" class="btn btn-outline-danger btn-sm" id="vault-delete">Delete</button>
+              <span class="d-none" id="vault-delete-confirm-wrap">
+                <span class="small text-muted me-2">Delete this item permanently?</span>
+                <button type="button" class="btn btn-danger btn-sm" id="vault-delete-confirm">Yes, delete</button>
+                <button type="button" class="btn btn-link btn-sm" id="vault-delete-cancel">Cancel</button>
+              </span>
+              <span class="se-vault-savestate small text-muted ms-auto" id="vault-save-state" role="status" aria-live="polite"></span>
+            </div>
+            <p class="text-muted small mb-0 mt-2">
+              Leaving a field saves the note. Each save is a fresh encryption with a new salt and
+              a new IV. Ctrl or Cmd + S saves too.
+            </p>
+          </div>
+        </div>
+
+        <div class="se-vault-panel mt-3">
+          <h6 class="se-section-label text-uppercase">What the server can see</h6>
+          <p class="text-muted small" id="vault-demo-note">Select a note to see its stored form.</p>
+
+          <div class="row g-3">
+            <div class="col-md-6">
+              <div class="se-vault-pane-label">
+                <span>Plaintext, this browser only</span>
+                <span>never transmitted</span>
+              </div>
+              <div class="se-vault-pane se-vault-pane-plain">
+                <pre class="se-vault-mono" id="vault-demo-plain">&mdash;</pre>
+              </div>
+            </div>
+            <div class="col-md-6">
+              <div class="se-vault-pane-label">
+                <span>Ciphertext, base64, as stored</span>
+                <span>what we hold</span>
+              </div>
+              <div class="se-vault-pane se-vault-pane-cipher">
+                <pre class="se-vault-mono" id="vault-demo-cipher">&mdash;</pre>
+              </div>
+            </div>
+          </div>
+
+          <table class="se-vault-meta-table">
+            <tbody>
+              <tr><th scope="row">entry_id</th><td id="vault-meta-id">&mdash;</td></tr>
+              <tr><th scope="row">algo</th><td id="vault-meta-algo">&mdash;</td></tr>
+              <tr><th scope="row">kdf_iterations</th><td id="vault-meta-iter">&mdash;</td></tr>
+              <tr><th scope="row">salt (b64)</th><td id="vault-meta-salt">&mdash;</td></tr>
+              <tr><th scope="row">iv (b64)</th><td id="vault-meta-iv">&mdash;</td></tr>
+              <tr><th scope="row">stored size</th><td id="vault-meta-bytes">&mdash;</td></tr>
+              <tr><th scope="row">updated_at</th><td id="vault-meta-updated">&mdash;</td></tr>
+            </tbody>
+          </table>
+
+          <p class="text-muted small mb-0 mt-3">
+            The right-hand column is the exact string sent in the request body. The salt and the
+            IV are stored in the clear because they are not secret: they make each encryption
+            unique, and without the passphrase they do not help anyone read the ciphertext. You
+            can confirm all of this in your browser's network inspector.
+          </p>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script defer src="{{ url_for('static', filename='js/vault.js') }}"></script>
+{% endblock %}

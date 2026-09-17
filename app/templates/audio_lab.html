@@ -1,0 +1,223 @@
+{% extends "base.html" %}
+{% block title %}Audio fingerprints - SummarEase{% endblock %}
+{% block content %}
+<div class="se-audio-lab">
+
+  <div class="se-page-head">
+    <div>
+      <h2>Audio fingerprints</h2>
+      <p>
+        Drop in a recording and this works out whether you've heard it before, and where the same audio
+        repeats inside it. It's the same technique music-identification apps use: turn the sound into a
+        spectrogram, find the loudest peaks, and hash the pattern between them. Unlike comparing files
+        byte for byte, it still matches after re-encoding, volume changes and background noise.
+      </p>
+    </div>
+    <span class="se-local-badge">Runs locally</span>
+  </div>
+
+  <div class="card mb-4">
+    <div class="card-body">
+      <h5 class="card-title">Analyse a recording</h5>
+      <p class="text-muted small">
+        The file is decoded in your browser and only the raw waveform numbers are sent for analysis —
+        nothing is uploaded or stored unless you tick the box.
+      </p>
+      <div class="row g-2 align-items-center">
+        <div class="col-md-6">
+          <input type="file" class="form-control" id="audio-file" accept="audio/*,video/*">
+        </div>
+        <div class="col-md-3">
+          <input type="text" class="form-control" id="audio-label" placeholder="Name it (optional)">
+        </div>
+        <div class="col-md-3">
+          <label class="small">
+            <input type="checkbox" id="audio-save"> Remember this one
+          </label>
+        </div>
+      </div>
+      <div class="mt-3" id="audio-status"></div>
+      <canvas class="se-spectrogram mt-3 d-none" id="spectrogram" width="960" height="160"></canvas>
+    </div>
+  </div>
+
+  <div id="results"></div>
+
+  <div class="card">
+    <div class="card-body">
+      <h5 class="card-title">Remembered recordings</h5>
+      {% if library %}
+        <div class="table-responsive">
+          <table class="table table-sm">
+            <thead><tr><th>Name</th><th>Length</th><th>Landmarks</th><th>Added</th><th></th></tr></thead>
+            <tbody>
+              {% for item in library %}
+                <tr>
+                  <td>{{ item.label }}</td>
+                  <td>{{ (item.duration or 0) | round(1) }}s</td>
+                  <td>{{ item.hash_count }}</td>
+                  <td class="text-muted small">{{ item.created_at[:10] }}</td>
+                  <td class="text-end">
+                    <button type="button" class="btn btn-sm btn-link text-danger p-0 fp-delete" data-id="{{ item.id }}">remove</button>
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% else %}
+        <p class="text-muted small mb-0">
+          Nothing remembered yet. Analyse a recording with "remember this one" ticked and future uploads
+          will be checked against it.
+        </p>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  const fileInput = document.getElementById("audio-file");
+  const status = document.getElementById("audio-status");
+  const results = document.getElementById("results");
+  const canvas = document.getElementById("spectrogram");
+
+  function setStatus(message, kind) {
+    status.innerHTML = `<div class="alert alert-${kind || "info"} mb-0 py-2 small">${message}</div>`;
+  }
+
+  fileInput.addEventListener("change", async () => {
+    const file = fileInput.files[0];
+    if (!file) return;
+
+    setStatus("Decoding the audio in your browser...");
+    results.innerHTML = "";
+
+    let samples, sampleRate;
+    try {
+      // WebAudio decodes mp3/m4a/ogg/wav natively, which is why this
+      // feature needs no audio libraries on the server.
+      const buffer = await file.arrayBuffer();
+      const context = new (window.AudioContext || window.webkitAudioContext)();
+      const decoded = await context.decodeAudioData(buffer);
+      sampleRate = decoded.sampleRate;
+
+      // Mix to mono: fingerprinting works on a single channel and
+      // sending both would double the payload for no benefit.
+      const channels = decoded.numberOfChannels;
+      const length = decoded.length;
+      const mono = new Float32Array(length);
+      for (let c = 0; c < channels; c++) {
+        const data = decoded.getChannelData(c);
+        for (let i = 0; i < length; i++) mono[i] += data[i] / channels;
+      }
+
+      // Cap what we send. Ten minutes at the analysis rate is plenty to
+      // identify a recording and keeps the request a sane size.
+      const maxSamples = sampleRate * 600;
+      samples = mono.length > maxSamples ? mono.subarray(0, maxSamples) : mono;
+      context.close();
+    } catch (err) {
+      setStatus("Couldn't decode that file. Try an mp3, wav, m4a or ogg.", "danger");
+      return;
+    }
+
+    setStatus("Finding the landmarks...");
+    const payload = {
+      samples: Array.from(samples, v => Math.round(v * 10000) / 10000),
+      sample_rate: sampleRate,
+      label: document.getElementById("audio-label").value || file.name,
+      save: document.getElementById("audio-save").checked
+    };
+
+    try {
+      const [fpResponse, specResponse] = await Promise.all([
+        fetch("/api/audio/fingerprint", {
+          method: "POST", credentials: "same-origin",
+          headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload)
+        }),
+        fetch("/api/audio/spectrogram", {
+          method: "POST", credentials: "same-origin",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ samples: payload.samples, sample_rate: sampleRate })
+        })
+      ]);
+
+      if (!fpResponse.ok) throw new Error("analysis failed");
+      const data = await fpResponse.json();
+      render(data, file.name);
+
+      if (specResponse.ok) drawSpectrogram(await specResponse.json());
+      setStatus(`Analysed ${data.duration.toFixed(1)} seconds — ${data.hash_count} landmarks.`, "success");
+    } catch (err) {
+      setStatus("The analysis failed. The file may be too long.", "danger");
+    }
+  });
+
+  function render(data, filename) {
+    let html = "";
+
+    if (data.matches && data.matches.length) {
+      html += '<div class="card mb-3"><div class="card-body"><h5 class="card-title">You\'ve heard this before</h5>';
+      html += '<div class="list-group list-group-flush">';
+      data.matches.forEach(m => {
+        html += `<div class="list-group-item px-0">
+          <strong>${m.label}</strong>
+          <span class="badge text-bg-${m.score > 0.2 ? "success" : "secondary"}">${Math.round(m.score * 100)}% match</span>
+          <div class="small text-muted">
+            ${m.aligned_hashes} landmarks line up${m.offset_seconds !== null ? `, offset by ${m.offset_seconds.toFixed(1)}s` : ""}
+          </div></div>`;
+      });
+      html += "</div></div></div>";
+    } else {
+      html += '<div class="alert alert-secondary">No match in your remembered recordings — this appears to be new.</div>';
+    }
+
+    if (data.repeats && data.repeats.length) {
+      html += '<div class="card mb-3"><div class="card-body"><h5 class="card-title">Repeated inside this recording</h5>';
+      html += '<p class="text-muted small">Segments that appear more than once — usually an intro, a jingle, or a phrase repeated verbatim.</p>';
+      html += '<ul class="small mb-0">';
+      data.repeats.slice(0, 10).forEach(r => {
+        html += `<li>${r.first_at.toFixed(1)}s and again at ${r.repeat_at.toFixed(1)}s (about ${r.duration.toFixed(1)}s long)</li>`;
+      });
+      html += "</ul></div></div>";
+    }
+
+    results.innerHTML = html;
+  }
+
+  function drawSpectrogram(spec) {
+    if (!spec.matrix || !spec.matrix.length) return;
+    canvas.classList.remove("d-none");
+    const context = canvas.getContext("2d");
+    const rows = spec.matrix.length;
+    const cols = spec.matrix[0].length;
+    const cellWidth = canvas.width / cols;
+    const cellHeight = canvas.height / rows;
+
+    context.fillStyle = "#12141c";
+    context.fillRect(0, 0, canvas.width, canvas.height);
+
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        const value = spec.matrix[r][c];
+        if (value < 0.04) continue;
+        // Low energy reads as deep blue, high energy as warm yellow --
+        // a perceptually increasing ramp rather than a rainbow, which
+        // would invent structure that isn't in the data.
+        const hue = 250 - value * 210;
+        context.fillStyle = `hsl(${hue}, 85%, ${18 + value * 52}%)`;
+        context.fillRect(c * cellWidth, canvas.height - (r + 1) * cellHeight, Math.ceil(cellWidth), Math.ceil(cellHeight));
+      }
+    }
+  }
+
+  document.addEventListener("click", (e) => {
+    const button = e.target.closest(".fp-delete");
+    if (!button) return;
+    fetch("/api/audio/" + button.getAttribute("data-id"), { method: "DELETE", credentials: "same-origin" })
+      .then(() => location.reload());
+  });
+})();
+</script>
+{% endblock %}

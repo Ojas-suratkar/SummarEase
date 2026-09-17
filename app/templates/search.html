@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}Search - SummarEase{% endblock %}
+{% block content %}
+<h2 class="mb-2">Search your knowledge base</h2>
+<p class="text-muted small">Instant keyword search over everything you've saved, layered with semantic ranking -- no Gemini call needed.</p>
+
+<form method="get" action="{{ url_for('routes.search_page') }}" class="d-flex gap-2 mb-4">
+  <input type="text" class="form-control" name="q" placeholder="Search by keyword or meaning..." value="{{ query }}" autofocus>
+  <button type="submit" class="btn btn-primary text-nowrap">Search</button>
+  {% if query %}<a href="{{ url_for('routes.search_page') }}" class="btn btn-outline-secondary text-nowrap">Clear</a>{% endif %}
+</form>
+
+{% if searched %}
+  <p class="text-muted small">{{ results|length }} result{{ "s" if results|length != 1 else "" }} for "{{ query }}".</p>
+{% endif %}
+
+{% if results %}
+  <div class="list-group">
+    {% for item in results %}
+      <div class="list-group-item">
+        <div class="d-flex justify-content-between align-items-start">
+          <div>
+            <span class="badge text-bg-secondary text-uppercase">{{ item.source_type }}</span>
+            {% if item.source_ref %}<span class="text-muted small ms-1">{{ item.source_ref }}</span>{% endif %}
+            <span class="badge text-bg-light text-muted ms-1">{{ item.match_type }}</span>
+          </div>
+          <div class="text-muted small">{{ item.created_at[:19] }}</div>
+        </div>
+        <p class="mb-0 mt-2">{{ item.summary }}</p>
+        <a class="small" href="{{ url_for('routes.history') }}">View in knowledge base</a>
+      </div>
+    {% endfor %}
+  </div>
+{% elif searched %}
+  <p class="text-muted">No matches found.</p>
+{% endif %}
+{% endblock %}

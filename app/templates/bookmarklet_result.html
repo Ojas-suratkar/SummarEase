@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}Saved - SummarEase{% endblock %}
+{% block content %}
+<div style="max-width: 560px;">
+  <h4 class="mb-3">SummarEase</h4>
+  {% if error %}
+    <div class="alert alert-danger">{{ error }}</div>
+  {% else %}
+    <div class="alert alert-success">Saved to your knowledge base{{ ' as ' ~ user.display_name if user else '' }}.</div>
+    {% if url %}<p class="text-muted small text-break">{{ url }}</p>{% endif %}
+    {% if summary %}<p>{{ summary }}</p>{% endif %}
+    {% if doc_id %}
+      <a class="btn btn-sm btn-outline-primary" href="{{ url_for('routes.history') }}" target="_blank">Open your knowledge base</a>
+    {% endif %}
+  {% endif %}
+  <p class="text-muted small mt-3">You can close this window.</p>
+</div>
+{% endblock %}

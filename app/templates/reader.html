@@ -1,0 +1,555 @@
+{% extends "base.html" %}
+{% block title %}Speed reader - SummarEase{% endblock %}
+
+{% block content %}
+<style>
+  /* ------------------------------------------------------------------
+     RSVP reader. All feature CSS is scoped under .se-reader-page so it
+     cannot leak into the rest of the app. Colours come from the tokens
+     in style.css :root rather than being restated here.
+     ------------------------------------------------------------------ */
+
+  .se-reader-page {
+    --rsvp-stage-bg: #12141f;
+    --rsvp-stage-ink: #f4f5fb;
+    --rsvp-pivot: #f97362;
+  }
+
+  .se-reader-page .rsvp-muted {
+    color: var(--se-ink-muted);
+    font-size: 0.9rem;
+  }
+
+  /* ---------- Library ---------- */
+
+  .se-reader-page .rsvp-doc-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    max-height: 22rem;
+    overflow-y: auto;
+  }
+
+  .se-reader-page .rsvp-doc {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    text-align: left;
+    padding: 0.65rem 0.8rem;
+    border: 1px solid var(--se-border);
+    border-radius: var(--se-radius-sm);
+    background: var(--se-surface);
+    color: var(--se-ink);
+    cursor: pointer;
+  }
+
+  .se-reader-page .rsvp-doc:hover,
+  .se-reader-page .rsvp-doc:focus-visible {
+    border-color: var(--se-primary);
+    background: var(--se-primary-soft);
+  }
+
+  .se-reader-page .rsvp-doc-active {
+    border-color: var(--se-primary);
+    background: var(--se-primary-soft);
+  }
+
+  .se-reader-page .rsvp-doc-title {
+    font-weight: 600;
+    line-height: 1.3;
+  }
+
+  .se-reader-page .rsvp-doc-meta {
+    font-size: 0.8rem;
+    color: var(--se-ink-muted);
+  }
+
+  /* ---------- The stage ----------
+     Dark, because a single word on a bright field leaves an afterimage
+     that sits on top of the next one. High contrast, very large type,
+     and a monospace-ish tracking so the word does not visibly reflow
+     around the pivot. */
+
+  .se-reader-page .rsvp-stage {
+    position: relative;
+    background: var(--rsvp-stage-bg);
+    color: var(--rsvp-stage-ink);
+    border-radius: var(--se-radius);
+    box-shadow: var(--se-shadow);
+    padding: 3.25rem 1rem 2.5rem;
+    overflow: hidden;
+  }
+
+  /* The fixation guide. Two short ticks on the vertical centre line,
+     above and below the word. The eye parks between them and the word
+     arrives already aligned -- without a guide, readers hunt for the
+     centre for the first second or two of every session. */
+  .se-reader-page .rsvp-stage::before,
+  .se-reader-page .rsvp-stage::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    width: 1px;
+    height: 1.1rem;
+    background: rgba(244, 245, 251, 0.35);
+    transform: translateX(-50%);
+  }
+
+  .se-reader-page .rsvp-stage::before { top: 1.5rem; }
+  .se-reader-page .rsvp-stage::after { bottom: 1.1rem; }
+
+  /* The pinned word. A three-column grid with 1fr flanks means the
+     middle column's centre is always the container's centre, so the ORP
+     character never moves by a single pixel while the rest of the word
+     slides around it. This is the entire trick. */
+  .se-reader-page .rsvp-word {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: baseline;
+    font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: clamp(1.9rem, 6.5vw, 3.4rem);
+    font-weight: 500;
+    letter-spacing: -0.01em;
+    line-height: 1.25;
+    min-height: 1.25em;
+    white-space: pre;
+  }
+
+  .se-reader-page .rsvp-left { justify-self: end; }
+  .se-reader-page .rsvp-right { justify-self: start; }
+
+  .se-reader-page .rsvp-pivot {
+    justify-self: center;
+    color: var(--rsvp-pivot);
+  }
+
+  .se-reader-page .rsvp-countdown {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: clamp(3rem, 12vw, 5rem);
+    font-weight: 700;
+    color: var(--rsvp-stage-ink);
+    background: var(--rsvp-stage-bg);
+    z-index: 2;
+  }
+
+  .se-reader-page .rsvp-countdown-animated {
+    animation: rsvp-pulse 0.6s ease-out;
+  }
+
+  @keyframes rsvp-pulse {
+    from { opacity: 0.45; transform: scale(0.94); }
+    to   { opacity: 1;    transform: scale(1); }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .se-reader-page .rsvp-countdown-animated { animation: none; }
+    .se-reader-page * { transition: none !important; }
+  }
+
+  /* ---------- Progress and controls ---------- */
+
+  .se-reader-page .rsvp-progress {
+    height: 4px;
+    background: rgba(244, 245, 251, 0.14);
+    border-radius: 2px;
+    margin-top: 2.25rem;
+    overflow: hidden;
+  }
+
+  .se-reader-page .rsvp-progress-bar {
+    height: 100%;
+    width: 0;
+    background: var(--se-primary);
+  }
+
+  .se-reader-page .rsvp-controls {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 1rem;
+  }
+
+  .se-reader-page .rsvp-speed-row {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    flex: 1 1 15rem;
+    min-width: 12rem;
+  }
+
+  .se-reader-page .rsvp-speed-row input[type="range"] { flex: 1 1 auto; }
+
+  .se-reader-page .rsvp-speed-value {
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+    min-width: 5.5rem;
+    text-align: right;
+  }
+
+  .se-reader-page .rsvp-stats {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0.5rem;
+    margin-top: 1rem;
+  }
+
+  .se-reader-page .rsvp-stat {
+    background: var(--se-surface);
+    border: 1px solid var(--se-border);
+    border-radius: var(--se-radius-sm);
+    padding: 0.55rem 0.7rem;
+    text-align: center;
+  }
+
+  .se-reader-page .rsvp-stat-value {
+    display: block;
+    font-weight: 700;
+    font-size: 1.15rem;
+    font-variant-numeric: tabular-nums;
+    color: var(--se-ink);
+  }
+
+  .se-reader-page .rsvp-stat-label {
+    display: block;
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--se-ink-muted);
+  }
+
+  .se-reader-page .rsvp-status {
+    margin-top: 0.75rem;
+    font-size: 0.9rem;
+    color: var(--se-ink-muted);
+  }
+
+  .se-reader-page .rsvp-status-warn { color: var(--se-danger); }
+
+  .se-reader-page .rsvp-keys {
+    margin-top: 0.85rem;
+    font-size: 0.82rem;
+    color: var(--se-ink-muted);
+  }
+
+  .se-reader-page .rsvp-keys kbd {
+    background: var(--se-surface-alt, #f9fafc);
+    border: 1px solid var(--se-border);
+    border-radius: var(--se-radius-xs, 6px);
+    color: var(--se-ink);
+    padding: 0.05rem 0.35rem;
+    font-size: 0.78rem;
+  }
+
+  /* ---------- Quiz ---------- */
+
+  .se-reader-page .rsvp-q {
+    border: 1px solid var(--se-border);
+    border-radius: var(--se-radius-sm);
+    padding: 0.85rem 1rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .se-reader-page .rsvp-q-prompt {
+    float: none;
+    width: auto;
+    font-size: 1rem;
+    font-weight: 600;
+    line-height: 1.45;
+    margin-bottom: 0.3rem;
+  }
+
+  .se-reader-page .rsvp-q-kind {
+    display: inline-block;
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--se-ink-muted);
+    border: 1px solid var(--se-border);
+    border-radius: 999px;
+    padding: 0.05rem 0.5rem;
+    margin-bottom: 0.55rem;
+  }
+
+  .se-reader-page .rsvp-option {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.55rem;
+    padding: 0.45rem 0.6rem;
+    border: 1px solid var(--se-border);
+    border-radius: var(--se-radius-xs, 7px);
+    margin-bottom: 0.35rem;
+    cursor: pointer;
+    line-height: 1.45;
+  }
+
+  .se-reader-page .rsvp-option:hover { border-color: var(--se-primary); }
+  .se-reader-page .rsvp-option input { margin-top: 0.3rem; }
+
+  .se-reader-page .rsvp-option-right {
+    border-color: var(--se-success);
+    background: rgba(22, 163, 74, 0.08);
+  }
+
+  .se-reader-page .rsvp-option-wrong {
+    border-color: var(--se-danger);
+    background: rgba(220, 38, 38, 0.07);
+  }
+
+  .se-reader-page .rsvp-evidence {
+    font-size: 0.85rem;
+    color: var(--se-ink-muted);
+    border-left: 2px solid var(--se-border-strong, var(--se-border));
+    padding-left: 0.6rem;
+    margin: 0.5rem 0 0;
+  }
+
+  .se-reader-page .rsvp-selfreport {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+  }
+
+  .se-reader-page .rsvp-quiz-result {
+    margin-top: 0.75rem;
+    padding: 0.7rem 0.85rem;
+    border-radius: var(--se-radius-sm);
+    background: var(--se-primary-soft);
+    border: 1px solid var(--se-border);
+    line-height: 1.5;
+  }
+
+  /* ---------- History ---------- */
+
+  .se-reader-page .rsvp-tiles {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+  }
+
+  .se-reader-page .rsvp-tile {
+    border: 1px solid var(--se-border);
+    border-radius: var(--se-radius-sm);
+    padding: 0.55rem 0.5rem;
+    text-align: center;
+  }
+
+  .se-reader-page .rsvp-tile-value {
+    display: block;
+    font-weight: 700;
+    font-size: 1.2rem;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .se-reader-page .rsvp-tile-label {
+    display: block;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--se-ink-muted);
+  }
+
+  .se-reader-page .rsvp-chart { margin: 0 0 0.75rem; }
+  .se-reader-page .rsvp-chart svg { width: 100%; height: auto; }
+
+  .se-reader-page .rsvp-chart figcaption {
+    font-size: 0.82rem;
+    color: var(--se-ink-muted);
+    margin-bottom: 0.4rem;
+  }
+
+  .se-reader-page .rsvp-grid { stroke: var(--se-border); stroke-width: 1; }
+  .se-reader-page .rsvp-axis { fill: var(--se-ink-muted); font-size: 11px; }
+
+  .se-reader-page .rsvp-line { stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+  .se-reader-page .rsvp-line-raw { stroke: var(--se-border-strong, #d7d9e8); }
+  .se-reader-page .rsvp-line-effective { stroke: var(--se-primary); }
+  .se-reader-page .rsvp-dot { fill: var(--se-primary); }
+
+  .se-reader-page .rsvp-assessment {
+    margin: 0;
+    line-height: 1.6;
+    color: var(--se-ink);
+  }
+
+  .se-reader-page .rsvp-sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  @media (max-width: 575.98px) {
+    .se-reader-page .rsvp-stats,
+    .se-reader-page .rsvp-tiles {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+</style>
+
+<div class="se-reader-page" id="rsvp-root" data-initial-wpm="300">
+
+  <div class="d-flex flex-wrap align-items-end justify-content-between gap-2 mb-1">
+    <h2 class="mb-0">Speed reader</h2>
+  </div>
+  <p class="text-muted small mb-4" style="max-width: 46rem;">
+    One word at a time, held at a fixed point so your eyes stop moving. Most
+    people read noticeably faster this way. After each run there is a short
+    recall check, and the speed for next time is set by how you do on it
+    rather than by how fast you felt.
+  </p>
+
+  <div class="row g-4">
+
+    <!-- ---------------- Library ---------------- -->
+    <div class="col-lg-4">
+      <div class="card h-100">
+        <div class="card-body">
+          <h5 class="card-title mb-1">Your saved reading</h5>
+          <p class="rsvp-muted mb-3">Anything you have summarized can be read here.</p>
+          <div class="rsvp-doc-list" id="rsvp-doc-list">
+            <p class="rsvp-muted mb-0">Loading your saved reading.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ---------------- Reader ---------------- -->
+    <div class="col-lg-8">
+      <div class="card">
+        <div class="card-body">
+
+          <div id="rsvp-stage-wrap">
+            <h5 class="card-title mb-1" id="rsvp-title">Pick something to read</h5>
+            <p class="rsvp-muted mb-3" id="rsvp-subtitle">
+              Choose a document on the left, then press play.
+            </p>
+
+            <div class="rsvp-stage" id="rsvp-stage" hidden>
+              <div class="rsvp-countdown" id="rsvp-countdown" hidden aria-hidden="true">3</div>
+
+              <div class="rsvp-word" aria-hidden="true">
+                <span class="rsvp-left" id="rsvp-left"></span><span class="rsvp-pivot" id="rsvp-pivot"></span><span class="rsvp-right" id="rsvp-right"></span>
+              </div>
+
+              <div class="rsvp-progress" aria-hidden="true">
+                <div class="rsvp-progress-bar" id="rsvp-progress-bar"></div>
+              </div>
+            </div>
+
+            <p class="rsvp-sr-only" id="rsvp-live" role="status" aria-live="polite"></p>
+
+            <div class="rsvp-controls">
+              <button type="button" class="btn btn-primary" id="rsvp-play" aria-label="Play (space)">Play</button>
+              <button type="button" class="btn btn-outline-secondary" id="rsvp-back" title="Back one sentence (left arrow)">Wait, what?</button>
+              <button type="button" class="btn btn-outline-secondary" id="rsvp-forward" title="Forward one sentence (right arrow)">Skip ahead</button>
+              <button type="button" class="btn btn-outline-secondary" id="rsvp-restart" title="Restart (R)">Restart</button>
+              <button type="button" class="btn btn-outline-secondary" id="rsvp-quiz-open" title="Comprehension check (Q)">Check recall</button>
+            </div>
+
+            <div class="rsvp-controls">
+              <div class="rsvp-speed-row">
+                <button type="button" class="btn btn-sm btn-outline-secondary" id="rsvp-slower" aria-label="Slower">&minus;</button>
+                <label for="rsvp-speed" class="rsvp-sr-only">Words per minute</label>
+                <input type="range" class="form-range" id="rsvp-speed" min="100" max="1000" step="25" value="300">
+                <button type="button" class="btn btn-sm btn-outline-secondary" id="rsvp-faster" aria-label="Faster">+</button>
+                <span class="rsvp-speed-value" id="rsvp-speed-value">300 wpm</span>
+              </div>
+            </div>
+
+            <div class="rsvp-controls">
+              <div class="rsvp-speed-row">
+                <label for="rsvp-scrub" class="rsvp-muted mb-0" style="min-width: 4.5rem;">Position</label>
+                <input type="range" class="form-range" id="rsvp-scrub" min="0" max="100" step="1" value="0"
+                       aria-label="Jump to a point in the document">
+                <span class="rsvp-speed-value" id="rsvp-scrub-label">0%</span>
+              </div>
+            </div>
+
+            <div class="rsvp-stats">
+              <div class="rsvp-stat">
+                <span class="rsvp-stat-value" id="rsvp-stat-wpm">300</span>
+                <span class="rsvp-stat-label">wpm</span>
+              </div>
+              <div class="rsvp-stat">
+                <span class="rsvp-stat-value" id="rsvp-stat-elapsed">0:00</span>
+                <span class="rsvp-stat-label">elapsed</span>
+              </div>
+              <div class="rsvp-stat">
+                <span class="rsvp-stat-value" id="rsvp-stat-left">0</span>
+                <span class="rsvp-stat-label">words left</span>
+              </div>
+              <div class="rsvp-stat">
+                <span class="rsvp-stat-value" id="rsvp-stat-finish">-</span>
+                <span class="rsvp-stat-label">to finish</span>
+              </div>
+            </div>
+
+            <p class="rsvp-status" id="rsvp-status" hidden></p>
+
+            <p class="rsvp-keys mb-0">
+              <kbd>space</kbd> play or pause &middot;
+              <kbd>&larr;</kbd> back a sentence &middot;
+              <kbd>&rarr;</kbd> ahead a sentence &middot;
+              <kbd>&uarr;</kbd><kbd>&darr;</kbd> speed &middot;
+              <kbd>R</kbd> restart &middot;
+              <kbd>Q</kbd> recall check &middot;
+              <kbd>esc</kbd> pause
+            </p>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- ---------------- Quiz ---------------- -->
+      <div class="card mt-4" id="rsvp-quiz" hidden>
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-start gap-2 mb-2">
+            <div>
+              <h5 class="card-title mb-1">Recall check</h5>
+              <p class="rsvp-muted mb-0">
+                Four questions built from the text itself, no AI involved. They
+                test what was stated, not what it meant.
+              </p>
+            </div>
+            <button type="button" class="btn-close" id="rsvp-quiz-close" aria-label="Close the recall check"></button>
+          </div>
+
+          <div id="rsvp-quiz-body"></div>
+
+          <button type="button" class="btn btn-primary" id="rsvp-quiz-submit" disabled>Check my recall</button>
+          <div class="rsvp-quiz-result" id="rsvp-quiz-result" hidden></div>
+        </div>
+      </div>
+
+      <!-- ---------------- History ---------------- -->
+      <div class="card mt-4">
+        <div class="card-body">
+          <h5 class="card-title mb-1">Reading fitness</h5>
+          <p class="rsvp-muted mb-3">
+            Effective speed is words per minute multiplied by measured recall.
+            It is the only number here that cannot be improved by dragging the
+            slider to the right.
+          </p>
+          <div id="rsvp-history-body">
+            <p class="rsvp-muted mb-0">Loading your history.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script src="{{ url_for('static', filename='js/reader.js') }}"></script>
+{% endblock %}

@@ -2,13 +2,14 @@
 {% block title %}Text Summarizer - SummarEase{% endblock %}
 {% block content %}
 <h2>Summarize text</h2>
-<form method="post" action="{{ url_for('routes.text') }}">
+<form method="post" action="{{ url_for('routes.text') }}" data-job-kind="text">
   <div class="mb-3">
     <label class="form-label" for="input_text">Paste your text</label>
     <textarea class="form-control" id="input_text" name="input_text" rows="10" required>{{ request.form.get('input_text', '') }}</textarea>
   </div>
+  {% include "_detail_selector.html" %}
   <button type="submit" class="btn btn-primary">Summarize</button>
 </form>
 
-{% include "_result.html" %}
+<div id="result-container">{% include "_result.html" %}</div>
 {% endblock %}

@@ -1,0 +1,325 @@
+{% extends "base.html" %}
+{% block title %}{{ entry.title }} - SummarEase{% endblock %}
+{% block content %}
+<div class="se-entry" data-entry-id="{{ entry.id }}">
+
+  <div class="se-page-head">
+    <div class="flex-grow-1">
+      <div class="d-flex align-items-center gap-2 mb-1">
+        <span class="badge text-bg-secondary text-uppercase">{{ entry.source_type }}</span>
+        {% if entry.is_pinned %}<span class="badge text-bg-light text-muted">Pinned</span>{% endif %}
+        {% if entry.is_archived %}<span class="badge text-bg-light text-muted">Archived</span>{% endif %}
+      </div>
+      <h2 class="se-editable-title" id="entry-title" contenteditable="true" spellcheck="false">{{ entry.title }}</h2>
+      <p class="small">
+        Saved {{ entry.created_at[:10] }}{% if entry.word_count %} &middot; {{ entry.word_count }} words in the source{% endif %}
+        <span class="text-muted" id="title-status"></span>
+      </p>
+    </div>
+    <div class="d-flex gap-2 flex-wrap">
+      <button type="button" class="btn btn-sm btn-outline-secondary" id="pin-btn">{{ "Unpin" if entry.is_pinned else "Pin" }}</button>
+      <button type="button" class="btn btn-sm btn-outline-secondary" id="archive-btn">{{ "Restore" if entry.is_archived else "Archive" }}</button>
+      <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('v2.trace_page', entry=entry.id) }}">Check sources</a>
+      <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('v2.reader_page') }}?entry={{ entry.id }}">Speed read</a>
+      <button type="button" class="btn btn-sm btn-outline-danger" id="delete-btn">Delete</button>
+    </div>
+  </div>
+
+  <div class="row g-4">
+
+    <!-- ---------------- Summary + notes ---------------- -->
+    <div class="col-lg-6">
+      <div class="card mb-3">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <h5 class="card-title mb-0">Summary</h5>
+            <button type="button" class="btn btn-sm btn-link p-0" id="edit-summary-btn">Edit</button>
+          </div>
+          <div id="summary-view" class="card-text" style="white-space: pre-line;">{{ entry.summary }}</div>
+          <div id="summary-edit" class="d-none">
+            <textarea class="form-control" id="summary-input" rows="10">{{ entry.summary }}</textarea>
+            <div class="d-flex gap-2 mt-2">
+              <button type="button" class="btn btn-sm btn-primary" id="save-summary-btn">Save</button>
+              <button type="button" class="btn btn-sm btn-outline-secondary" id="cancel-summary-btn">Cancel</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card mb-3">
+        <div class="card-body">
+          <h6 class="card-title">Your notes</h6>
+          <p class="text-muted small">Only you see these. They're searchable from the library.</p>
+          <textarea class="form-control" id="notes-input" rows="5" placeholder="What did you think? What do you want to remember?">{{ entry.notes }}</textarea>
+          <div class="text-muted small mt-1" id="notes-status">Saves as you type.</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-body">
+          <h6 class="card-title">Tags</h6>
+          <div id="tag-list" class="mb-2">
+            {% for tag in entry.tags %}<span class="se-tag" data-tag="{{ tag }}">{{ tag }} <a href="#" class="tag-remove" data-tag="{{ tag }}" aria-label="Remove tag">&times;</a></span>{% endfor %}
+          </div>
+          <div class="d-flex gap-2">
+            <input type="text" class="form-control form-control-sm" id="tag-input" placeholder="Add a tag and press Enter" list="known-tags">
+            <datalist id="known-tags">
+              {% for t in all_tags %}<option value="{{ t.tag }}">{% endfor %}
+            </datalist>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ---------------- The original source ---------------- -->
+    <div class="col-lg-6">
+      <div class="card">
+        <div class="card-body">
+          <h5 class="card-title">The original</h5>
+
+          {% if assets %}
+            {% for asset in assets %}
+              <div class="mb-3">
+                {% if asset.available and asset.kind == "audio" %}
+                  <audio class="w-100" controls src="{{ url_for('v2.serve_source', asset_id=asset.id) }}"></audio>
+                {% elif asset.available and asset.kind == "video" %}
+                  <video class="w-100 rounded" style="max-height: 320px;" controls src="{{ url_for('v2.serve_source', asset_id=asset.id) }}"></video>
+                {% elif asset.available and asset.kind == "image" %}
+                  <img class="w-100 rounded" style="max-height: 400px; object-fit: contain;" src="{{ url_for('v2.serve_source', asset_id=asset.id) }}" alt="{{ asset.filename }}">
+                {% elif asset.available and asset.kind == "pdf" %}
+                  <a class="btn btn-sm btn-outline-primary" href="{{ url_for('v2.serve_source', asset_id=asset.id) }}" target="_blank" rel="noopener">Open the PDF</a>
+                {% endif %}
+                <div class="text-muted small mt-1">
+                  {{ asset.filename or asset.kind }}
+                  {% if not asset.available %}<span class="text-warning">— the file is no longer on disk</span>{% endif %}
+                </div>
+              </div>
+            {% endfor %}
+          {% endif %}
+
+          {% if entry.source_ref and "://" in entry.source_ref %}
+            <p class="small mb-3"><a href="{{ entry.source_ref }}" target="_blank" rel="noopener noreferrer">{{ entry.source_ref }}</a></p>
+          {% endif %}
+
+          {% if entry.source_text %}
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <span class="text-muted small">Text we summarized</span>
+              <button type="button" class="btn btn-sm btn-link p-0" id="edit-source-btn">Edit and re-run</button>
+            </div>
+            <div class="se-source-pane" id="source-view">{{ entry.source_text }}</div>
+            <div id="source-edit" class="d-none">
+              <textarea class="form-control" id="source-input" rows="14">{{ entry.source_text }}</textarea>
+              <p class="text-muted small mt-2 mb-2">
+                Fix anything the extraction got wrong, then summarize it again. Useful when a PDF or web page
+                came through garbled.
+              </p>
+              <div class="d-flex gap-2 align-items-center flex-wrap">
+                <select class="form-select form-select-sm" id="detail-select" style="width: auto;">
+                  <option value="brief">Brief</option>
+                  <option value="standard" selected>Standard</option>
+                  <option value="detailed">Detailed</option>
+                </select>
+                <button type="button" class="btn btn-sm btn-primary" id="rerun-btn">Save and summarize again</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary" id="save-source-btn">Save without re-running</button>
+                <button type="button" class="btn btn-sm btn-link" id="cancel-source-btn">Cancel</button>
+              </div>
+            </div>
+          {% elif not assets %}
+            <p class="text-muted small mb-0">
+              No original was kept for this one — it was saved before the app started keeping sources.
+              Everything you summarize from now on stores its original here.
+            </p>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  const entryId = {{ entry.id }};
+  const api = (method, body) => fetch(`/api/entry/${entryId}`, {
+    method, credentials: "same-origin",
+    headers: { "Content-Type": "application/json" },
+    body: body ? JSON.stringify(body) : undefined
+  }).then(r => r.ok ? r.json() : Promise.reject(r));
+
+  // Debounced autosave -- writing on every keystroke would be a request
+  // per character; waiting for an explicit save button loses work.
+  function debounce(fn, wait) {
+    let timer;
+    return function (...args) {
+      clearTimeout(timer);
+      timer = setTimeout(() => fn.apply(this, args), wait);
+    };
+  }
+
+  // ---- Title -------------------------------------------------------
+  const titleEl = document.getElementById("entry-title");
+  const titleStatus = document.getElementById("title-status");
+  const saveTitle = debounce(() => {
+    const value = titleEl.textContent.trim();
+    if (!value) return;
+    api("PATCH", { title: value })
+      .then(() => { titleStatus.textContent = "· saved"; setTimeout(() => titleStatus.textContent = "", 1800); })
+      .catch(() => window.seToast("Couldn't save the title.", "error"));
+  }, 700);
+  titleEl.addEventListener("input", saveTitle);
+  titleEl.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") { e.preventDefault(); titleEl.blur(); }
+  });
+
+  // ---- Notes -------------------------------------------------------
+  const notesInput = document.getElementById("notes-input");
+  const notesStatus = document.getElementById("notes-status");
+  const saveNotes = debounce(() => {
+    notesStatus.textContent = "Saving...";
+    api("PATCH", { notes: notesInput.value })
+      .then(() => notesStatus.textContent = "Saved.")
+      .catch(() => {
+        // Offline: queue it so the note isn't lost.
+        if (window.seQueueOperation) {
+          window.seQueueOperation("entry", entryId, "notes", "set", notesInput.value);
+          notesStatus.textContent = "Saved here — will sync when you're back online.";
+        } else {
+          notesStatus.textContent = "Couldn't save.";
+        }
+      });
+  }, 900);
+  notesInput.addEventListener("input", saveNotes);
+
+  // ---- Summary edit ------------------------------------------------
+  const summaryView = document.getElementById("summary-view");
+  const summaryEdit = document.getElementById("summary-edit");
+  const summaryInput = document.getElementById("summary-input");
+  document.getElementById("edit-summary-btn").addEventListener("click", () => {
+    summaryView.classList.add("d-none"); summaryEdit.classList.remove("d-none"); summaryInput.focus();
+  });
+  document.getElementById("cancel-summary-btn").addEventListener("click", () => {
+    summaryInput.value = summaryView.textContent;
+    summaryEdit.classList.add("d-none"); summaryView.classList.remove("d-none");
+  });
+  document.getElementById("save-summary-btn").addEventListener("click", () => {
+    api("PATCH", { summary: summaryInput.value })
+      .then(data => {
+        summaryView.textContent = data.summary;
+        summaryEdit.classList.add("d-none"); summaryView.classList.remove("d-none");
+        window.seToast("Summary updated.", "success");
+      })
+      .catch(() => window.seToast("Couldn't save.", "error"));
+  });
+
+  // ---- Tags --------------------------------------------------------
+  const tagList = document.getElementById("tag-list");
+  const tagInput = document.getElementById("tag-input");
+
+  function renderTags(tags) {
+    tagList.innerHTML = tags.map(t =>
+      `<span class="se-tag" data-tag="${t}">${t} <a href="#" class="tag-remove" data-tag="${t}" aria-label="Remove tag">&times;</a></span>`
+    ).join("");
+  }
+  function currentTags() {
+    return Array.from(tagList.querySelectorAll("[data-tag]")).map(el => el.getAttribute("data-tag"))
+      .filter((v, i, a) => a.indexOf(v) === i);
+  }
+  tagInput.addEventListener("keydown", (e) => {
+    if (e.key !== "Enter") return;
+    e.preventDefault();
+    const value = tagInput.value.trim().toLowerCase();
+    if (!value) return;
+    const tags = currentTags();
+    if (tags.includes(value)) { tagInput.value = ""; return; }
+    tags.push(value);
+    api("PATCH", { tags }).then(data => { renderTags(data.tags); tagInput.value = ""; })
+      .catch(() => window.seToast("Couldn't add that tag.", "error"));
+  });
+  tagList.addEventListener("click", (e) => {
+    const remove = e.target.closest(".tag-remove");
+    if (!remove) return;
+    e.preventDefault();
+    const tags = currentTags().filter(t => t !== remove.getAttribute("data-tag"));
+    api("PATCH", { tags }).then(data => renderTags(data.tags))
+      .catch(() => window.seToast("Couldn't remove that tag.", "error"));
+  });
+
+  // ---- Pin / archive / delete --------------------------------------
+  document.getElementById("pin-btn").addEventListener("click", (e) => {
+    const pinning = e.target.textContent.trim() === "Pin";
+    api("PATCH", { is_pinned: pinning }).then(() => location.reload());
+  });
+  document.getElementById("archive-btn").addEventListener("click", (e) => {
+    const archiving = e.target.textContent.trim() === "Archive";
+    api("PATCH", { is_archived: archiving }).then(() => location.reload());
+  });
+  document.getElementById("delete-btn").addEventListener("click", async () => {
+    const ok = await window.seConfirm(
+      "Delete this permanently? The summary, its notes, the stored original file and anything linked to it all go. This can't be undone.",
+      "Delete it"
+    );
+    if (!ok) return;
+    fetch(`/api/entry/${entryId}`, { method: "DELETE", credentials: "same-origin" })
+      .then(r => r.ok ? (window.location.href = "/library") : Promise.reject(r))
+      .catch(() => window.seToast("Couldn't delete that.", "error"));
+  });
+
+  // ---- Source edit and re-run --------------------------------------
+  const sourceView = document.getElementById("source-view");
+  const sourceEdit = document.getElementById("source-edit");
+  const editSourceBtn = document.getElementById("edit-source-btn");
+  if (editSourceBtn) {
+    const sourceInput = document.getElementById("source-input");
+    editSourceBtn.addEventListener("click", () => {
+      sourceView.classList.add("d-none"); sourceEdit.classList.remove("d-none"); sourceInput.focus();
+    });
+    document.getElementById("cancel-source-btn").addEventListener("click", () => {
+      sourceInput.value = sourceView.textContent;
+      sourceEdit.classList.add("d-none"); sourceView.classList.remove("d-none");
+    });
+    document.getElementById("save-source-btn").addEventListener("click", () => {
+      api("PATCH", { source_text: sourceInput.value }).then(() => {
+        sourceView.textContent = sourceInput.value;
+        sourceEdit.classList.add("d-none"); sourceView.classList.remove("d-none");
+        window.seToast("Source saved.", "success");
+      }).catch(() => window.seToast("Couldn't save.", "error"));
+    });
+    document.getElementById("rerun-btn").addEventListener("click", (e) => {
+      const button = e.target;
+      button.disabled = true; button.textContent = "Summarizing...";
+      api("PATCH", { source_text: sourceInput.value })
+        .then(() => fetch("/api/jobs/start", {
+          method: "POST", credentials: "same-origin",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            kind: "text",
+            text: sourceInput.value,
+            detail: document.getElementById("detail-select").value
+          })
+        }))
+        .then(r => r.json())
+        .then(() => {
+          window.seToast("Re-summarizing. It'll appear in your library shortly.", "success");
+          button.disabled = false; button.textContent = "Save and summarize again";
+        })
+        .catch(() => {
+          window.seToast("Couldn't re-run that.", "error");
+          button.disabled = false; button.textContent = "Save and summarize again";
+        });
+    });
+  }
+})();
+</script>
+
+<style>
+  .se-entry .se-editable-title {
+    outline: none;
+    border-radius: var(--se-radius-xs);
+    padding: 0.1rem 0.3rem;
+    margin-left: -0.3rem;
+  }
+  .se-entry .se-editable-title:hover { background: var(--se-surface-alt); }
+  .se-entry .se-editable-title:focus { background: var(--se-surface-alt); box-shadow: 0 0 0 2px var(--se-primary-soft); }
+  .se-entry .tag-remove { text-decoration: none; color: var(--se-ink-faint); margin-left: 0.15rem; }
+  .se-entry .tag-remove:hover { color: var(--se-danger); }
+</style>
+{% endblock %}
