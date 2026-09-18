@@ -141,11 +141,14 @@ boot, so there is no manual migration step for a fresh database.
 ## Tests
 
 ```bash
+python tests/test_app.py           # end-to-end: routes, data, permissions
 python app/core/<module>.py        # each algorithm module, standalone
 ```
 
-The route-level suites live outside the repository; every algorithm module is
-self-testing and self-contained.
+`tests/test_app.py` runs the whole application against a throwaway database
+with no AI key configured, which is what verifies the claim above that the
+local analysis works without one. Neither suite needs pytest or any other
+test dependency.
 
 ## Layout
 
